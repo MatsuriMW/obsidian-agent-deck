@@ -415,6 +415,7 @@ export class AutoLog {
     const report = { asked: 0, changes: [], error: "" };
     if (this.cfg.journalAutoWrite === false && !manual) return report;
     try {
+      if (manual && this.p?._usageReady) await this.p._usageReady;
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;

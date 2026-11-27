@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.40
+
+- **缺日记引导弹窗细节打磨与双插件跨格式同步修复（[`src/journal-policy.js`](src/journal-policy.js)、[`src/journal-setup-modal.js`](src/journal-setup-modal.js)、[`src/settings.js`](src/settings.js)、[`src/autolog.js`](src/autolog.js)、[`src/locales/en/dialogs.js`](src/locales/en/dialogs.js)、[`src/locales/zh-TW.js`](src/locales/zh-TW.js)）**：
+  - 按今日日记是否已存在自动切换引导弹窗文案与按钮（已存在时显示「配置今日日记创建规则 / 取消 / 保存设定」且取消不误记当日跳过；缺失时从设置弹窗保存自动新建策略会立即建好今日日记）。
+  - 手动输入或填写模板路径时实时识别 `{{ai}}` 并自动选中「模板 `{{ai}}` 处」；用 [`normalizePromptDay`](src/journal-policy.js) 统一双插件 `dismissedDay` 日期口径（兼容 `YYYY_MM_DD` 与 `YYYY-MM-DD`），并在手动 `AutoLog.runOnce` 时等待 `_usageReady` 初始化完成。
+- **功能示例笔记补充记忆图谱真实示例图（[`src/welcome-demo.js`](src/welcome-demo.js)、[`assets/memory-graph-overview.png`](assets/memory-graph-overview.png)、[`assets/memory-graph-detail.png`](assets/memory-graph-detail.png)）**：
+  - 在三语「个人长期记忆」介绍区块新增记忆图谱聚类总览与节点详情检视两张示例图。
+
 ## 1.13.39
 
 - **首次缺日记统一引导弹窗与跨插件共享日记创建策略（[`src/journal-policy.js`](src/journal-policy.js)、[`src/journal-setup-modal.js`](src/journal-setup-modal.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/autolog.js`](src/autolog.js)、[`src/main.js`](src/main.js)、[`src/settings.js`](src/settings.js)）**：

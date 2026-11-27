@@ -388,6 +388,9 @@ export default {
 
   // ----- unified daily-note setup modal -----
   "输入模板笔记路径或文件名…": "Type template path or note name…",
+  "配置今日日记创建规则": "Configure daily note creation",
+  "保存设定": "Save settings",
+  "已新建今日日记：{path}": "Created today's daily note: {path}",
   "今日日记还未创建": "Today's daily note doesn't exist yet",
   "螺旋日程用今日日记规划时间轴，Agent Deck 用它自动记录 AI 会话与结论。设好一次后，两款插件会共用这套规则，以后随时可在设置里修改。": "Nautilus Spiral uses today's note for your timeline, and Agent Deck logs AI sessions and conclusions there. Configure this once—both plugins share the rule, and you can change it anytime in Settings.",
   "Agent Deck 需要今日日记来自动记录 AI 会话、任务进度与结论。设好一次后后续将自动沿用，以后随时可在设置里修改。": "Agent Deck uses today's note to log AI sessions, task progress, and conclusions. Set this once to apply going forward; you can change it anytime in Settings.",

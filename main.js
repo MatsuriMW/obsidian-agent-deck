@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.39 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.40 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -2256,6 +2256,9 @@ var dialogs_default = {
   "AI \u63D0\u70BC\u7684\u672A\u9A8C\u8BC1\u8FC7\u6E21\u72B6\u6001\u4E0D\u5199\u5165\u957F\u671F\u8BB0\u5FC6": "Unverified AI transitional status is excluded from long-term memory",
   // ----- unified daily-note setup modal -----
   "\u8F93\u5165\u6A21\u677F\u7B14\u8BB0\u8DEF\u5F84\u6216\u6587\u4EF6\u540D\u2026": "Type template path or note name\u2026",
+  "\u914D\u7F6E\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u89C4\u5219": "Configure daily note creation",
+  "\u4FDD\u5B58\u8BBE\u5B9A": "Save settings",
+  "\u5DF2\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0\uFF1A{path}": "Created today's daily note: {path}",
   "\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA": "Today's daily note doesn't exist yet",
   "\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8BB0\u89C4\u5212\u65F6\u95F4\u8F74\uFF0CAgent Deck \u7528\u5B83\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\uFF0C\u4E24\u6B3E\u63D2\u4EF6\u4F1A\u5171\u7528\u8FD9\u5957\u89C4\u5219\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "Nautilus Spiral uses today's note for your timeline, and Agent Deck logs AI sessions and conclusions there. Configure this once\u2014both plugins share the rule, and you can change it anytime in Settings.",
   "Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8BB0\u6765\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u3001\u4EFB\u52A1\u8FDB\u5EA6\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\u540E\u7EED\u5C06\u81EA\u52A8\u6CBF\u7528\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "Agent Deck uses today's note to log AI sessions, task progress, and conclusions. Set this once to apply going forward; you can change it anytime in Settings.",
@@ -5004,6 +5007,9 @@ var zh_TW_default = {
   "\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5199\u4E00\u884C {{ai}} \u53EF\u7CBE\u786E\u6307\u5B9A AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E\u3002": "\u652F\u63F4 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5BEB\u4E00\u884C {{ai}} \u53EF\u7CBE\u78BA\u6307\u5B9A AI \u81EA\u52D5\u8A18\u9304\u5340\u57DF\u4F4D\u7F6E\u3002",
   "\u4ECA\u5929\u5148\u4E0D\u5EFA": "\u4ECA\u5929\u5148\u4E0D\u5EFA",
   "\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "\u5132\u5B58\u4E26\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8A18",
+  "\u914D\u7F6E\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u89C4\u5219": "\u8A2D\u5B9A\u4ECA\u65E5\u65E5\u8A18\u5EFA\u7ACB\u898F\u5247",
+  "\u4FDD\u5B58\u8BBE\u5B9A": "\u5132\u5B58\u8A2D\u5B9A",
+  "\u5DF2\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0\uFF1A{path}": "\u5DF2\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8A18\uFF1A{path}",
   "\u8BB0\u4F4F\u8BBE\u5B9A": "\u8A18\u4F4F\u8A2D\u5B9A",
   "{n}. AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u653E\u5230\u6A21\u677F\u7684\u54EA\u91CC\uFF1F": "{n}. AI \u81EA\u52D5\u8A18\u9304\u5340\u57DF\u653E\u5230\u7BC4\u672C\u7684\u54EA\u88E1\uFF1F",
   "{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8BB0\u540E\uFF0CAI \u81EA\u52A8\u8BB0\u5F55\u9ED8\u8BA4\u653E\u54EA\u91CC\uFF1F": "{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8A18\u5F8C\uFF0CAI \u81EA\u52D5\u8A18\u9304\u9810\u8A2D\u653E\u54EA\u88E1\uFF1F",
@@ -8730,6 +8736,9 @@ function findAiInsertPosition(text, policy = {}) {
   }
   return joinBoundary(normalized2, "");
 }
+function normalizePromptDay(day) {
+  return String(day || "").trim().replace(/\D+/g, "");
+}
 function getSharedJournalPromptState(app) {
   const store = globalThis.__obSharedJournalPromptState || (globalThis.__obSharedJournalPromptState = {});
   const key = app?.vault?.getName?.() || "__default__";
@@ -9392,7 +9401,7 @@ var JournalSetupModal = class extends Modal {
   constructor(app, plugin, { day = "", targetPath = "", caller = "agent-deck", initialPolicy = null, onResolve = null } = {}) {
     super(app);
     this.plugin = plugin;
-    this.day = day;
+    this.day = normalizePromptDay(day);
     this.targetPath = targetPath;
     this.caller = caller;
     this.onResolve = onResolve;
@@ -9407,6 +9416,9 @@ var JournalSetupModal = class extends Modal {
     });
     if (this.state.configured && basePolicy?.aiPlacement) this._userPickedPlacement = true;
   }
+  noteExists() {
+    return Boolean(this.targetPath && this.app?.vault?.getAbstractFileByPath?.(this.targetPath));
+  }
   onOpen() {
     this.modalEl?.addClass?.("ad-modal", "ad-jsetup");
     this.render();
@@ -9417,7 +9429,7 @@ var JournalSetupModal = class extends Modal {
     if (!this._settled) {
       this._settled = true;
       const shared = getSharedJournalPromptState(this.app);
-      if (this.day) shared.dismissedDay = this.day;
+      if (this.day && !this.noteExists()) shared.dismissedDay = this.day;
       this.onResolve?.({ saved: false, dismissed: true });
     }
   }
@@ -9457,8 +9469,9 @@ var JournalSetupModal = class extends Modal {
     el.empty();
     const hasSpiral = !!this.app?.plugins?.plugins?.["nautilus-spiral"];
     const obsTpl = detectObsidianDailyTemplate(this.app);
+    const exists = this.noteExists();
     const head = el.createDiv({ cls: "ad-modalhead" });
-    head.createDiv({ cls: "ad-modalhead__title", text: t("\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA") });
+    head.createDiv({ cls: "ad-modalhead__title", text: exists ? t("\u914D\u7F6E\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u89C4\u5219") : t("\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA") });
     head.createDiv({
       cls: "ad-jsetup__why",
       text: hasSpiral ? t("\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8BB0\u89C4\u5212\u65F6\u95F4\u8F74\uFF0CAgent Deck \u7528\u5B83\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\uFF0C\u4E24\u6B3E\u63D2\u4EF6\u4F1A\u5171\u7528\u8FD9\u5957\u89C4\u5219\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002") : t("Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8BB0\u6765\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u3001\u4EFB\u52A1\u8FDB\u5EA6\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\u540E\u7EED\u5C06\u81EA\u52A8\u6CBF\u7528\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002")
@@ -9522,7 +9535,7 @@ var JournalSetupModal = class extends Modal {
         });
         input.oninput = () => {
           this.state.templatePath = input.value.trim();
-          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+          this.refreshTemplateHints();
         };
         const pickBtn = row.createEl("button", { cls: "ad-btn", text: t("\u9009\u62E9\u6587\u4EF6"), attr: { type: "button" } });
         pickBtn.onclick = () => {
@@ -9544,7 +9557,7 @@ var JournalSetupModal = class extends Modal {
         ta.value = this.state.templateText || "";
         ta.oninput = () => {
           this.state.templateText = ta.value;
-          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+          this.refreshTemplateHints();
         };
         tplSec.createDiv({
           cls: "ad-jsetup__hint",
@@ -9557,15 +9570,15 @@ var JournalSetupModal = class extends Modal {
     });
     this.renderPlacementOptions();
     const foot = el.createDiv({ cls: "ad-modalfoot" });
-    const laterBtn = foot.createEl("button", { cls: "ad-btn", text: t("\u4ECA\u5929\u5148\u4E0D\u5EFA"), attr: { type: "button" } });
+    const laterBtn = foot.createEl("button", { cls: "ad-btn", text: exists ? t("\u53D6\u6D88") : t("\u4ECA\u5929\u5148\u4E0D\u5EFA"), attr: { type: "button" } });
     laterBtn.onclick = () => {
       const shared = getSharedJournalPromptState(this.app);
-      if (this.day) shared.dismissedDay = this.day;
+      if (this.day && !exists) shared.dismissedDay = this.day;
       this.settle({ saved: false, dismissed: true });
     };
     const okBtn = foot.createEl("button", {
       cls: "ad-btn ad-btn--primary",
-      text: this.state.mode === "auto" ? t("\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0") : t("\u8BB0\u4F4F\u8BBE\u5B9A"),
+      text: this.state.mode === "auto" ? exists ? t("\u4FDD\u5B58\u8BBE\u5B9A") : t("\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0") : t("\u8BB0\u4F4F\u8BBE\u5B9A"),
       attr: { type: "button" }
     });
     okBtn.onclick = async () => {
@@ -9675,13 +9688,14 @@ async function openSharedJournalSetupModal(plugin, { day = "", targetPath = "", 
   if (!app) return { saved: false, dismissed: false };
   const shared = getSharedJournalPromptState(app);
   if (shared.modalPromise) return shared.modalPromise;
-  if (!manualTrigger && day && shared.dismissedDay === day) {
+  const dayKey2 = normalizePromptDay(day);
+  if (!manualTrigger && dayKey2 && normalizePromptDay(shared.dismissedDay) === dayKey2) {
     return { saved: false, dismissed: true };
   }
   const initialPolicy = plugin.getJournalPolicy?.();
   shared.modalPromise = new Promise((resolve) => {
     const modal = new JournalSetupModal(app, plugin, {
-      day,
+      day: dayKey2,
       targetPath,
       caller,
       initialPolicy,
@@ -45882,7 +45896,17 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         );
         if (typeof p.promptJournalPolicyIfNeeded === "function") {
           const wizardBtn = box.createEl("button", { cls: "ad-linkbtn", text: t("\u6253\u5F00\u5F15\u5BFC\u5F39\u7A97"), attr: { type: "button" } });
-          wizardBtn.onclick = () => p.promptJournalPolicyIfNeeded({ manualTrigger: true }).then(() => this.display());
+          wizardBtn.onclick = async () => {
+            const res = await p.promptJournalPolicyIfNeeded({ caller: "settings", manualTrigger: true });
+            if (res?.saved && res?.policy?.mode === "auto" && p.autoLog) {
+              const day = p.autoLog.dayKey();
+              if (!p.autoLog.journalFile(day)) {
+                const created = await p.autoLog.createJournal(day);
+                if (created) new import_obsidian7.Notice(t("\u5DF2\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0\uFF1A{path}", { path: created.path }));
+              }
+            }
+            this.display();
+          };
         }
       }
     );
@@ -52576,6 +52600,7 @@ var AutoLog = class {
     const report = { asked: 0, changes: [], error: "" };
     if (this.cfg.journalAutoWrite === false && !manual) return report;
     try {
+      if (manual && this.p?._usageReady) await this.p._usageReady;
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
@@ -59434,7 +59459,9 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
       "### Personal Memory Reimagined: Visual Knowledge Graph, Easy Review & On-Demand AI Lookup",
       "Your saved preferences, project lessons, and recurring workflows now turn into concise, readable cards connected cleanly in Obsidian's **Graph View** across topics, projects, and source notes \u2014 with one-click graph color presets, conflict spotting, table browsing, and automatic archiving for outdated entries. In the **Memory Board**, filter by status or batch-confirm personal journal logs, or run item-by-item review to confirm, reject, and resolve conflicts in place; delegating also matches multi-keyword lessons more accurately and external AI assistants can look up relevant memories on demand or propose new learnings for review. (If you are still on single-file mode, click **Migrate to one-file-per-memory store (recommended)** first.)",
       "",
-      `![Browse and organize your personal memory network](${IMG_BASE}/memory-base.png)`,
+      `![Memory Graph: clustered overview of long-term preferences, lessons, and projects](${RAW_BASE}/memory-graph-overview.png)`,
+      "",
+      `![Memory Graph: inspect node details, confidence, and source notes](${RAW_BASE}/memory-graph-detail.png)`,
       "",
       "- **Try it now**: Open **Settings \u2192 Dreaming \u2192 Memory Workspace** (click **Open Memory Board**, expand **Graph & Store Maintenance** for graph presets, or click **Review one by one**), or run `Memory: open the memory board (columns by state, drag to change)` from the Command Palette.",
       "",
@@ -59552,7 +59579,9 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
       "### \u500B\u4EBA\u9577\u671F\u8A18\u61B6\u5168\u9762\u5347\u7D1A\uFF1A\u770B\u5F97\u898B\u7684\u77E5\u8B58\u7DB2\u8DEF\u3001\u8F15\u9B06\u5BE9\u95B1\u8207\u5916\u90E8 AI \u96A8\u7528\u96A8\u67E5",
       "\u6C89\u6FB1\u4E0B\u4F86\u7684\u504F\u597D\u3001\u5C08\u6848\u7D93\u9A57\u8207\u5E38\u7528\u898F\u5247\u6703\u81EA\u52D5\u6574\u7406\u6210\u7C21\u77ED\u597D\u8B80\u7684\u8A18\u61B6\u5361\u7247\uFF0C\u5728 Obsidian **\u95DC\u806F\u5716\u8B5C**\u88E1\u9023\u5411\u5C0D\u61C9\u4E3B\u984C\u3001\u5C08\u6848\u8207\u539F\u59CB\u65E5\u8A18\uFF1B\u652F\u63F4\u4E00\u9375\u5716\u8B5C\u5206\u7D44\u914D\u8272\u3001\u885D\u7A81\u767C\u73FE\u3001\u8868\u683C\u700F\u89BD\u8207\u904E\u671F\u81EA\u52D5\u6B78\u6A94\u6062\u5FA9\u3002\u5728\u300C\u8A18\u61B6\u770B\u677F\u300D\u88E1\u53EF\u4F9D\u72C0\u614B\u7BE9\u9078\u6216\u6279\u6B21\u78BA\u8A8D\u672C\u4EBA\u65E5\u8A8C\u8A18\u61B6\uFF0C\u9EDE\u300C\u9010\u689D\u5BE9\u95B1\u300D\u4E5F\u80FD\u5C31\u5730\u78BA\u8A8D\u3001\u62D2\u7D55\u8207\u88C1\u6C7A\u885D\u7A81\uFF1B\u6D3E\u6D3B\u6642\u66F4\u7CBE\u6E96\u6311\u51FA\u76F8\u95DC\u7D93\u9A57\uFF0C\u4E26\u652F\u63F4\u5916\u90E8 AI \u6309\u9700\u67E5\u8A62\u6216\u63D0\u8B70\u88DC\u5145\u8A18\u61B6\u4F9B\u4F60\u628A\u95DC\uFF08\u4ECD\u70BA\u55AE\u6A94\u6A21\u5F0F\u6642\u53EF\u5148\u9EDE\u300C\u9077\u79FB\u5230\u4E00\u6587\u4E00\u689D\u8A18\u61B6\u5EAB\uFF08\u63A8\u85A6\uFF09\u300D\u555F\u7528\u5B8C\u6574\u9AD4\u9A57\uFF09\u3002",
       "",
-      `![\u700F\u89BD\u8207\u6574\u7406\u4F60\u7684\u500B\u4EBA\u77E5\u8B58\u7DB2\u8DEF](${IMG_BASE}/memory-base.png)`,
+      `![\u8A18\u61B6\u5716\u8B5C\u7E3D\u89BD\uFF1A\u6309\u5C08\u6848\u8207\u4E3B\u984C\u805A\u985E\u7684\u500B\u4EBA\u77E5\u8B58\u7DB2\u8DEF](${RAW_BASE}/memory-graph-overview.png)`,
+      "",
+      `![\u8A18\u61B6\u5716\u8B5C\u8A73\u60C5\uFF1A\u9EDE\u9078\u4EFB\u610F\u7BC0\u9EDE\u6AA2\u8996\u8A18\u61B6\u5167\u5BB9\u3001\u4F86\u6E90\u8207\u95DC\u806F](${RAW_BASE}/memory-graph-detail.png)`,
       "",
       "- **\u7ACB\u5373\u8A66\u8A66**\uFF1A\u6253\u958B\u300C\u8A2D\u5B9A \u2192 Dreaming \u2192 \u8A18\u61B6\u5EAB\u5DE5\u4F5C\u5340\u300D\uFF08\u9EDE\u300C\u958B\u555F\u8A18\u61B6\u770B\u677F\u300D\u3001\u5C55\u958B\u300C\u5716\u8B5C\u8207\u5EAB\u7DAD\u8B77\u300D\u61C9\u7528\u5716\u8B5C\u9810\u8A2D\uFF0C\u6216\u9EDE\u300C\u9010\u689D\u5BE9\u95B1\u300D\uFF09\uFF0C\u6216\u5728\u6307\u4EE4\u9762\u677F\u641C\u5C0B `\u8A18\u61B6\uFF1A\u958B\u555F\u8A18\u61B6\u770B\u677F\uFF08\u6309\u72C0\u614B\u5206\u5217\uFF0C\u53EF\u62D6\u62FD\uFF09`\u3002",
       "",
@@ -59669,7 +59698,9 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
     "### \u4E2A\u4EBA\u957F\u671F\u8BB0\u5FC6\u5168\u9762\u5347\u7EA7\uFF1A\u770B\u5F97\u89C1\u7684\u77E5\u8BC6\u7F51\u7EDC\u3001\u8F7B\u677E\u5BA1\u9605\u4E0E\u5916\u90E8 AI \u968F\u7528\u968F\u67E5",
     "\u6C89\u6DC0\u4E0B\u6765\u7684\u504F\u597D\u3001\u9879\u76EE\u7ECF\u9A8C\u4E0E\u5E38\u7528\u89C4\u5219\u4F1A\u81EA\u52A8\u6574\u7406\u6210\u7B80\u77ED\u597D\u8BFB\u7684\u8BB0\u5FC6\u5361\u7247\uFF0C\u5728 Obsidian **\u5173\u7CFB\u56FE\u8C31**\u91CC\u8FDE\u5411\u5BF9\u5E94\u4E3B\u9898\u3001\u9879\u76EE\u4E0E\u539F\u59CB\u65E5\u8BB0\uFF1B\u652F\u6301\u4E00\u952E\u56FE\u8C31\u5206\u7EC4\u914D\u8272\u3001\u51B2\u7A81\u53D1\u73B0\u3001\u8868\u683C\u6D4F\u89C8\u4E0E\u8FC7\u671F\u81EA\u52A8\u5F52\u6863\u6062\u590D\u3002\u5728\u300C\u8BB0\u5FC6\u770B\u677F\u300D\u91CC\u53EF\u6309\u72B6\u6001\u7B5B\u9009\u6216\u6279\u91CF\u786E\u8BA4\u672C\u4EBA\u65E5\u5FD7\u8BB0\u5FC6\uFF0C\u70B9\u300C\u9010\u6761\u5BA1\u9605\u300D\u4E5F\u80FD\u5C31\u5730\u786E\u8BA4\u3001\u62D2\u7EDD\u4E0E\u88C1\u51B3\u51B2\u7A81\uFF1B\u6D3E\u6D3B\u65F6\u66F4\u7CBE\u51C6\u6311\u51FA\u76F8\u5173\u7ECF\u9A8C\uFF0C\u5E76\u652F\u6301\u5916\u90E8 AI \u6309\u9700\u67E5\u8BE2\u6216\u63D0\u8BAE\u8865\u5145\u8BB0\u5FC6\u4F9B\u4F60\u628A\u5173\uFF08\u4ECD\u4E3A\u5355\u6587\u4EF6\u6A21\u5F0F\u65F6\u53EF\u5148\u70B9\u300C\u8FC1\u79FB\u5230\u4E00\u6587\u4E00\u6761\u8BB0\u5FC6\u5E93\uFF08\u63A8\u8350\uFF09\u300D\u542F\u7528\u5B8C\u6574\u4F53\u9A8C\uFF09\u3002",
     "",
-    `![\u6D4F\u89C8\u4E0E\u6574\u7406\u4F60\u7684\u4E2A\u4EBA\u77E5\u8BC6\u7F51\u7EDC](${IMG_BASE}/memory-base.png)`,
+    `![\u8BB0\u5FC6\u56FE\u8C31\u603B\u89C8\uFF1A\u6309\u9879\u76EE\u4E0E\u4E3B\u9898\u805A\u7C7B\u7684\u4E2A\u4EBA\u77E5\u8BC6\u7F51\u7EDC](${RAW_BASE}/memory-graph-overview.png)`,
+    "",
+    `![\u8BB0\u5FC6\u56FE\u8C31\u8BE6\u60C5\uFF1A\u70B9\u51FB\u4EFB\u610F\u8282\u70B9\u67E5\u770B\u8BB0\u5FC6\u5185\u5BB9\u3001\u6765\u6E90\u4E0E\u5173\u8054](${RAW_BASE}/memory-graph-detail.png)`,
     "",
     "- **\u7ACB\u5373\u8BD5\u8BD5**\uFF1A\u6253\u5F00\u300C\u8BBE\u7F6E \u2192 Dreaming \u2192 \u8BB0\u5FC6\u5E93\u5DE5\u4F5C\u533A\u300D\uFF08\u70B9\u300C\u6253\u5F00\u8BB0\u5FC6\u770B\u677F\u300D\u3001\u5C55\u5F00\u300C\u56FE\u8C31\u4E0E\u5E93\u7EF4\u62A4\u300D\u5E94\u7528\u56FE\u8C31\u9884\u8BBE\uFF0C\u6216\u70B9\u300C\u9010\u6761\u5BA1\u9605\u300D\uFF09\uFF0C\u6216\u5728\u547D\u4EE4\u9762\u677F\u641C\u7D22 `\u8BB0\u5FC6\uFF1A\u6253\u5F00\u8BB0\u5FC6\u770B\u677F\uFF08\u6309\u72B6\u6001\u5206\u5217\uFF0C\u53EF\u62D6\u62FD\uFF09`\u3002",
     "",

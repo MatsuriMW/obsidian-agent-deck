@@ -8,6 +8,7 @@ import {
   resolveVaultTemplateFile,
   extractTemplateHeadings,
   hasAiPlaceholder,
+  normalizePromptDay,
   getSharedJournalPromptState,
 } from "./journal-policy.js";
 
@@ -33,7 +34,7 @@ export class JournalSetupModal extends Modal {
   constructor(app, plugin, { day = "", targetPath = "", caller = "agent-deck", initialPolicy = null, onResolve = null } = {}) {
     super(app);
     this.plugin = plugin;
-    this.day = day;
+    this.day = normalizePromptDay(day);
     this.targetPath = targetPath;
     this.caller = caller;
     this.onResolve = onResolve;
@@ -50,6 +51,10 @@ export class JournalSetupModal extends Modal {
     if (this.state.configured && basePolicy?.aiPlacement) this._userPickedPlacement = true;
   }
 
+  noteExists() {
+    return Boolean(this.targetPath && this.app?.vault?.getAbstractFileByPath?.(this.targetPath));
+  }
+
   onOpen() {
     this.modalEl?.addClass?.("ad-modal", "ad-jsetup");
     this.render();
@@ -61,7 +66,7 @@ export class JournalSetupModal extends Modal {
     if (!this._settled) {
       this._settled = true;
       const shared = getSharedJournalPromptState(this.app);
-      if (this.day) shared.dismissedDay = this.day;
+      if (this.day && !this.noteExists()) shared.dismissedDay = this.day;
       this.onResolve?.({ saved: false, dismissed: true });
     }
   }
@@ -103,9 +108,10 @@ export class JournalSetupModal extends Modal {
 
     const hasSpiral = !!this.app?.plugins?.plugins?.["nautilus-spiral"];
     const obsTpl = detectObsidianDailyTemplate(this.app);
+    const exists = this.noteExists();
 
     const head = el.createDiv({ cls: "ad-modalhead" });
-    head.createDiv({ cls: "ad-modalhead__title", text: t("今日日记还未创建") });
+    head.createDiv({ cls: "ad-modalhead__title", text: exists ? t("配置今日日记创建规则") : t("今日日记还未创建") });
     head.createDiv({
       cls: "ad-jsetup__why",
       text: hasSpiral
@@ -180,7 +186,7 @@ export class JournalSetupModal extends Modal {
         });
         input.oninput = () => {
           this.state.templatePath = input.value.trim();
-          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+          this.refreshTemplateHints();
         };
         const pickBtn = row.createEl("button", { cls: "ad-btn", text: t("选择文件"), attr: { type: "button" } });
         pickBtn.onclick = () => {
@@ -202,7 +208,7 @@ export class JournalSetupModal extends Modal {
         ta.value = this.state.templateText || "";
         ta.oninput = () => {
           this.state.templateText = ta.value;
-          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+          this.refreshTemplateHints();
         };
         tplSec.createDiv({
           cls: "ad-jsetup__hint",
@@ -219,16 +225,18 @@ export class JournalSetupModal extends Modal {
 
     // Footer
     const foot = el.createDiv({ cls: "ad-modalfoot" });
-    const laterBtn = foot.createEl("button", { cls: "ad-btn", text: t("今天先不建"), attr: { type: "button" } });
+    const laterBtn = foot.createEl("button", { cls: "ad-btn", text: exists ? t("取消") : t("今天先不建"), attr: { type: "button" } });
     laterBtn.onclick = () => {
       const shared = getSharedJournalPromptState(this.app);
-      if (this.day) shared.dismissedDay = this.day;
+      if (this.day && !exists) shared.dismissedDay = this.day;
       this.settle({ saved: false, dismissed: true });
     };
 
     const okBtn = foot.createEl("button", {
       cls: "ad-btn ad-btn--primary",
-      text: this.state.mode === "auto" ? t("保存并新建今日日记") : t("记住设定"),
+      text: this.state.mode === "auto"
+        ? (exists ? t("保存设定") : t("保存并新建今日日记"))
+        : t("记住设定"),
       attr: { type: "button" },
     });
     okBtn.onclick = async () => {
@@ -344,13 +352,14 @@ export async function openSharedJournalSetupModal(plugin, { day = "", targetPath
   if (!app) return { saved: false, dismissed: false };
   const shared = getSharedJournalPromptState(app);
   if (shared.modalPromise) return shared.modalPromise;
-  if (!manualTrigger && day && shared.dismissedDay === day) {
+  const dayKey = normalizePromptDay(day);
+  if (!manualTrigger && dayKey && normalizePromptDay(shared.dismissedDay) === dayKey) {
     return { saved: false, dismissed: true };
   }
   const initialPolicy = plugin.getJournalPolicy?.();
   shared.modalPromise = new Promise((resolve) => {
     const modal = new JournalSetupModal(app, plugin, {
-      day,
+      day: dayKey,
       targetPath,
       caller,
       initialPolicy,

@@ -1798,7 +1798,17 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         );
         if (typeof p.promptJournalPolicyIfNeeded === "function") {
           const wizardBtn = box.createEl("button", { cls: "ad-linkbtn", text: t("打开引导弹窗"), attr: { type: "button" } });
-          wizardBtn.onclick = () => p.promptJournalPolicyIfNeeded({ manualTrigger: true }).then(() => this.display());
+          wizardBtn.onclick = async () => {
+            const res = await p.promptJournalPolicyIfNeeded({ caller: "settings", manualTrigger: true });
+            if (res?.saved && res?.policy?.mode === "auto" && p.autoLog) {
+              const day = p.autoLog.dayKey();
+              if (!p.autoLog.journalFile(day)) {
+                const created = await p.autoLog.createJournal(day);
+                if (created) new Notice(t("已新建今日日记：{path}", { path: created.path }));
+              }
+            }
+            this.display();
+          };
         }
       },
     );

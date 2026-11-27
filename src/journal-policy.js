@@ -226,6 +226,10 @@ export function findAiInsertPosition(text, policy = {}) {
   return joinBoundary(normalized, "");
 }
 
+export function normalizePromptDay(day) {
+  return String(day || "").trim().replace(/\D+/g, "");
+}
+
 export function getSharedJournalPromptState(app) {
   const store = (globalThis.__obSharedJournalPromptState ||= {});
   const key = app?.vault?.getName?.() || "__default__";

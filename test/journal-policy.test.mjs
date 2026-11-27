@@ -4,7 +4,7 @@ import { register } from "node:module";
 
 register("data:text/javascript," + encodeURIComponent(`
 export async function resolve(spec, ctx, next) {
-  if (spec === "obsidian") return { url: "data:text/javascript,export class Notice{constructor(){}};export class MarkdownView{};export class Modal{};export class FuzzySuggestModal{}", shortCircuit: true };
+  if (spec === "obsidian") return { url: "data:text/javascript,export class Notice{constructor(){}};export class MarkdownView{};export class Modal{constructor(app){this.app=app}};export class FuzzySuggestModal{constructor(app){this.app=app}}", shortCircuit: true };
   return next(spec, ctx);
 }`));
 
@@ -18,7 +18,9 @@ const {
   expandJournalTemplateVars,
   resolveJournalInitialContent,
   findAiInsertPosition,
+  getSharedJournalPromptState,
 } = await import("../src/journal-policy.js");
+const { JournalSetupModal, openSharedJournalSetupModal } = await import("../src/journal-setup-modal.js");
 const { planJournal, renderJournal, ensureTopRule } = await import("../src/organize-journal.js");
 const { AutoLog } = await import("../src/autolog.js");
 const { DEFAULTS } = await import("../src/constants.js");
@@ -236,6 +238,10 @@ test("AutoLog.runOnce prompts once when unconfigured and respects manual choice 
   };
 
   const autolog = new AutoLog(plugin);
+  autolog.ask = async (askItems) => new Map(askItems.map(({ x }) => [
+    x.sid,
+    { label: x.title, proj: "", summary: "已完成重构。", kind: "code", matchKey: null, done: false, todos: [], skip: false },
+  ]));
   // 1. Background run when unconfigured prompts & respects dismissal (no file created)
   const r1 = await autolog.runOnce({ fallback: true, manual: false, notify: false });
   assert.equal(prompts, 1);
@@ -265,4 +271,94 @@ test("AutoLog.runOnce prompts once when unconfigured and respects manual choice 
     && after.indexOf("<!-- agent-deck:layout:end -->") < after.indexOf("## 我的日志"),
     "honors top placement chosen in modal while preserving user frontmatter and body",
   );
+});
+
+test("JournalSetupModal switches copy and dismissedDay guard based on whether targetPath exists", async () => {
+  const makeEl = (tag = "div", { cls = "", text = "" } = {}) => {
+    const node = {
+      tag,
+      cls,
+      text,
+      value: "",
+      children: [],
+      style: {},
+      empty() { this.children = []; },
+      addClass(...c) { this.cls = [this.cls, ...c].filter(Boolean).join(" "); },
+      createDiv(opts) { const d = makeEl("div", opts); this.children.push(d); return d; },
+      createEl(tName, opts) { const e = makeEl(tName, opts); this.children.push(e); return e; },
+      remove() {},
+    };
+    return node;
+  };
+  const findByCls = (root, cls) => {
+    const out = [];
+    const walk = (n) => {
+      if ((n.cls || "").split(/\s+/).includes(cls)) out.push(n);
+      for (const ch of n.children || []) walk(ch);
+    };
+    walk(root);
+    return out;
+  };
+
+  let exists = false;
+  const app = {
+    vault: { getAbstractFileByPath: (p) => (exists && p === "2026-11-27.md" ? { path: p } : null) },
+    plugins: { plugins: {} },
+  };
+  const plugin = {
+    app,
+    settings: { journalAutoCreate: true },
+    getJournalPolicy: () => ({ ...DEFAULT_JOURNAL_POLICY, configured: true, mode: "auto" }),
+  };
+
+  const makeModal = () => {
+    const m = new JournalSetupModal(app, plugin, { day: "2026_11_27", targetPath: "2026-11-27.md" });
+    m.contentEl = makeEl("div");
+    m.modalEl = makeEl("div");
+    m.close = () => m.onClose();
+    return m;
+  };
+
+  // Missing note -> creation wording & sets dismissedDay when dismissed
+  const shared = getSharedJournalPromptState(app);
+  shared.dismissedDay = "";
+  const mMissing = makeModal();
+  mMissing.render();
+  assert.equal(findByCls(mMissing.contentEl, "ad-modalhead__title")[0].text, "今日日记还未创建");
+  const missingBtns = findByCls(mMissing.contentEl, "ad-modalfoot")[0].children.map((b) => b.text);
+  assert.deepEqual(missingBtns, ["今天先不建", "保存并新建今日日记"]);
+  mMissing.onClose();
+  assert.equal(shared.dismissedDay, "20261127");
+
+  // Cross-plugin day format normalization ("2026_11_27" dismissed suppresses background "2026-11-27")
+  const suppressed = await openSharedJournalSetupModal(plugin, {
+    day: "2026-11-27",
+    targetPath: "2026-11-27.md",
+    manualTrigger: false,
+  });
+  assert.deepEqual(suppressed, { saved: false, dismissed: true });
+
+  // Existing note -> settings configuration wording & does NOT set dismissedDay
+  exists = true;
+  shared.dismissedDay = "";
+  const mExists = makeModal();
+  mExists.render();
+  assert.equal(findByCls(mExists.contentEl, "ad-modalhead__title")[0].text, "配置今日日记创建规则");
+  const existingBtns = findByCls(mExists.contentEl, "ad-modalfoot")[0].children.map((b) => b.text);
+  assert.deepEqual(existingBtns, ["取消", "保存设定"]);
+  mExists.onClose();
+  assert.equal(shared.dismissedDay, "");
+
+  // Typing {{ai}} live while unconfigured auto-selects placeholder placement
+  const mCustom = new JournalSetupModal(app, {
+    settings: { journalAutoCreate: true },
+    getJournalPolicy: () => ({ ...DEFAULT_JOURNAL_POLICY, configured: false, mode: "auto" }),
+  }, { day: "2026_11_27", targetPath: "missing.md" });
+  mCustom.contentEl = makeEl("div");
+  mCustom.modalEl = makeEl("div");
+  mCustom.render();
+  mCustom.state.templateSource = "custom";
+  mCustom.state.templateText = "## 晨间计划\n{{ai}}\n## 夜间总结";
+  await mCustom.refreshTemplateHints();
+  assert.equal(mCustom.state.aiPlacement, "placeholder");
 });
