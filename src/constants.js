@@ -572,7 +572,17 @@ export const DEFAULTS = {
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
-  journalAutoCreate: true, // 今天日记不存在时自动新建；关闭后只写入已存在的日记
+  journalAutoCreate: true, // 今天日记不存在时自动新建；关闭后只写入已存在的日记（同步 journalPolicy.mode）
+  journalPolicy: {
+    configured: false,
+    mode: "auto",
+    templateSource: "obsidian",
+    templatePath: "",
+    templateText: "",
+    aiPlacement: "bottom",
+    aiAnchorHeading: "",
+    updatedAt: 0,
+  },
   journalSync: true,
   journalLayout: null,
   uiLanguage: "auto",

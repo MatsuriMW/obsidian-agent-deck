@@ -10,8 +10,9 @@ import { serializeNote } from "./note-updates.js";
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, dailyNotesOptions, resolveRecordRules, formatDate, trackedRounds, seenSessions } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, resolveRecordRules, trackedRounds, seenSessions } from "./constants.js";
 import * as J from "./journal.js";
+import { resolveJournalInitialContent, normalizeJournalPolicy } from "./journal-policy.js";
 import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { t } from "./i18n.js";
@@ -31,16 +32,6 @@ const BLOCKED_KW = {
   limit: "HITLIMIT",
   queued: "QUEUED",
 };
-
-// 「日记」核心插件的模板认这些变量：{{title}}、{{date}}、{{time}}，以及带 moment 格式的
-// {{date:YYYY-MM-DD}} / {{time:HH:mm}}；没写格式就按「模板」插件里的日期/时间格式。
-function expandJournalTemplate(text, { title = "", now = new Date(), dateFormat = "YYYY-MM-DD", timeFormat = "HH:mm" } = {}) {
-  return String(text).replace(/\{\{\s*(date|time|title)\s*(?::([^{}]*))?\s*\}\}/g, (_, name, fmt) => {
-    if (name === "title") return title;
-    const format = String(fmt || "").trim() || (name === "date" ? dateFormat : timeFormat);
-    return formatDate(now, format);
-  });
-}
 
 export class AutoLog {
   constructor(plugin) {
@@ -92,7 +83,7 @@ export class AutoLog {
     return f && f.extension === "md" ? f : null;
   }
 
-  // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
+  // 今天的日记还没建：按共享日记创建策略（默认/指定文件/自定义模板）建一篇，AI 分区骨架照旧交给 placeBlock
   async createJournal(day) {
     const path = this.journalPath(day);
     if (typeof this.p.ensureNoteFile !== "function") return null;
@@ -101,22 +92,10 @@ export class AutoLog {
   }
 
   async journalTemplate(path) {
-    const app = this.p.app;
-    const periodic = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
-    const tplPath = String(
-      dailyNotesOptions(app)?.template
-      || (periodic?.enabled ? periodic.template : "")
-      || "",
-    ).trim();
-    if (!tplPath) return "";
-    const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
-    if (!file || typeof file.extension !== "string") return "";
-    let text = "";
-    try { text = await app.vault.read(file); } catch { return ""; }
-    let format = {};
-    try { format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {}; } catch { /* 没有这个接口 */ }
-    const title = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
-    return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
+    const policy = typeof this.p.getJournalPolicy === "function"
+      ? this.p.getJournalPolicy()
+      : normalizeJournalPolicy(this.cfg.journalPolicy, { legacyAutoCreate: this.cfg.journalAutoCreate !== false });
+    return resolveJournalInitialContent(this.p.app, policy, { path, now: new Date() });
   }
 
   viewFor(file) {
@@ -149,12 +128,19 @@ export class AutoLog {
     return ok;
   }
 
-  // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
+  // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才按用户选择的插入位置建区
   placeBlock(text, blockLines) {
     const block = blockLines.join("\n");
     let custom = readJournalLayout(text);
     if (!custom) {
-      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg), showTimeRange: this.rules().showTimeRange }));
+      const placementPolicy = typeof this.p.getJournalPolicy === "function"
+        ? this.p.getJournalPolicy()
+        : this.cfg.journalPolicy;
+      text = renderJournal(planJournal(text, {
+        layout: configuredJournalLayout(this.cfg),
+        showTimeRange: this.rules().showTimeRange,
+        placementPolicy,
+      }));
       custom = readJournalLayout(text);
       if (!custom) throw new Error(t("请先关闭笔记中的代码块，再建立日志分区"));
     }
@@ -432,11 +418,37 @@ export class AutoLog {
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const autoCreate = this.cfg.journalAutoCreate !== false;
-      const file = this.journalFile(day) || (autoCreate ? await this.createJournal(day) : null);
+      let file = this.journalFile(day);
       if (!file) {
-        if (manual || autoCreate) report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) });
-        return report;
+        if (typeof this.p.getJournalPolicy === "function") {
+          let policy = this.p.getJournalPolicy();
+          if (!policy.configured && typeof this.p.promptJournalPolicyIfNeeded === "function") {
+            const res = await this.p.promptJournalPolicyIfNeeded({
+              day,
+              targetPath: this.journalPath(day),
+              caller: "agent-deck",
+              manualTrigger: manual,
+            });
+            file = this.journalFile(day);
+            policy = res?.policy || this.p.getJournalPolicy();
+          }
+          if (!file && policy.configured && policy.mode === "auto") {
+            file = await this.createJournal(day);
+          }
+          if (!file) {
+            if (manual || (policy.configured && policy.mode === "auto")) {
+              report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) });
+            }
+            return report;
+          }
+        } else {
+          const autoCreate = this.cfg.journalAutoCreate !== false;
+          file = autoCreate ? await this.createJournal(day) : null;
+          if (!file) {
+            if (manual || autoCreate) report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) });
+            return report;
+          }
+        }
       }
       const arch = this.archived();
       const todayList = [], crossByOrigin = new Map();

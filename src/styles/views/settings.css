@@ -80,17 +80,77 @@
     margin-top: 5px;
   }
 
-  & .ad-set-nav {
-    display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    border-bottom: 1px solid var(--ad-line);
-    margin-bottom: 16px;
+  & .ad-set-sticky {
     position: sticky;
     top: 0;
     background: var(--background-primary);
     z-index: 3;
     padding-top: 4px;
+    margin-bottom: 14px;
+  }
+
+  & .ad-set-nav {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    border-bottom: 1px solid var(--ad-line);
+  }
+
+  & .ad-set-toc {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 0 10px;
+    border-bottom: 1px solid var(--ad-line);
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  & .ad-set-toc__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ad-muted);
+    margin-right: 2px;
+    flex: none;
+  }
+
+  & .ad-set-toc__item {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    padding: 3px 9px;
+    min-height: 24px;
+    height: auto;
+    border-radius: 999px;
+    border: 1px solid var(--ad-line);
+    background: var(--ad-surface);
+    box-shadow: none;
+    color: var(--ad-muted);
+    font-size: 11.5px;
+    line-height: 1.35;
+    font-weight: 500;
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ad-ink);
+      border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--ad-line));
+    }
+
+    &.is-on {
+      color: var(--interactive-accent);
+      border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--ad-line));
+      background: color-mix(in srgb, var(--interactive-accent) 11%, var(--ad-surface));
+      font-weight: 600;
+    }
+  }
+
+  & .is-toc-flash {
+    border-color: var(--interactive-accent) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+    transition: box-shadow .2s ease, border-color .2s ease;
   }
 
   & .ad-set-tab {
@@ -1591,5 +1651,31 @@
 @media (max-width: 340px) {
   .ad-settings .ad-set-agents {
     grid-template-columns: 1fr;
+  }
+}
+
+.ad-settings {
+  & .ad-jpolicy-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  & .ad-jpolicy-filerow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    & .ad-input { flex: 1; min-width: 0; }
+  }
+
+  & .ad-jpolicy-textarea {
+    width: 100%;
+    min-height: 92px;
+    font-family: var(--ad-figure);
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
   }
 }

@@ -1,5 +1,6 @@
 import * as J from './journal.js';
 import { readJournalLayout, renderJournalLayout, builtinJournalLayout } from './journal-layout.js';
+import { splitFrontMatterLines, findAiInsertPosition } from './journal-policy.js';
 
 // Journal layout
 //
@@ -28,18 +29,9 @@ const ORDER = ["DOING", "NOW", "IN-PROGRESS", "DELEGATED", "NEEDOK", "TOREVIEW",
 const rank = (kw) => (ORDER.includes(kw) ? ORDER.indexOf(kw) : ORDER.length);
 const isRule = (line) => /^\s*---+\s*$/.test(line);
 
-// Obsidian front matter: --- key: value --- at the very top.
+// Obsidian front matter: --- key: value --- at the very top (including Unicode keys).
 function splitFrontMatter(lines) {
-  if ((lines[0] || '').trim() !== '---') return { head: [], start: 0 };
-  // No line cap: a note with a large properties block is still front matter. The
-  // key: value probe below is what tells a properties block apart from a rule.
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() !== '---') continue;
-    const body = lines.slice(1, i);
-    if (body.some((line) => /^[\w-]+\s*:/.test(line))) return { head: lines.slice(0, i + 1), start: i + 1 };
-    return { head: [], start: 0 };
-  }
-  return { head: [], start: 0 };
+  return splitFrontMatterLines(lines);
 }
 
 function blockText(lines, start, end) {
@@ -127,11 +119,18 @@ function planBoundedJournal(text, options, custom) {
     todo: sectionPlans.todo.rest,
     done: sectionPlans.done.rest,
   };
-  let head = region ? region.rawHead : normalized;
-  if (!region && head && !head.endsWith('\n\n')) head += head.endsWith('\n') ? '\n' : '\n\n';
-  // The former custom "notes" section contains personal notes, not pending
-  // tasks. Keep it outside the new frame during migration.
-  const tail = (region?.sections.notes?.text ? '\n\n' + region.sections.notes.text : '') + (region ? region.rawTail : '\n');
+  let head;
+  let tail;
+  if (region) {
+    head = region.rawHead;
+    // The former custom "notes" section contains personal notes, not pending
+    // tasks. Keep it outside the new frame during migration.
+    tail = (region.sections.notes?.text ? '\n\n' + region.sections.notes.text : '') + region.rawTail;
+  } else {
+    const pos = findAiInsertPosition(normalized, options.placementPolicy || {});
+    head = pos.head;
+    tail = pos.tail;
+  }
   return {
     head, tail, crlf, layout, bounded: true,
     done, active, todo, sectionRest,
@@ -142,9 +141,9 @@ function planBoundedJournal(text, options, custom) {
 }
 
 // Classify the whole note into the three bands without touching the text.
-export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout, boundedBody = false, showTimeRange = true } = {}) {
+export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout, boundedBody = false, showTimeRange = true, placementPolicy = null } = {}) {
   const custom = readJournalLayout(text);
-  if (layout?.order.includes('todo') || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange }, custom);
+  if (layout?.order.includes('todo') || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange, placementPolicy }, custom);
   if (custom) {
     const canonical = [custom.head, `---\n${DONE_HEADING}\n${custom.sections.done.text}\n\n---\n${ACTIVE_HEADING}\n${custom.sections.active.text}\n\n---\n`].filter(Boolean).join('\n\n');
     const plan = planJournal(canonical, { tracked, archived, turns, showTimeRange });

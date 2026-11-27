@@ -962,3 +962,120 @@
   & .ad-inbox__input { width: 100%; min-height: 48px; resize: vertical; }
   & .ad-inbox__actions { display: flex; gap: 6px; justify-content: flex-end; }
 }
+
+/* ---------- 首次缺失今日日记引导弹窗（.ad-modal.ad-jsetup） ---------- */
+.ad-modal.ad-jsetup {
+  --ad-modal-w: min(580px, 94vw);
+
+  & .ad-jsetup__why {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--ad-muted);
+  }
+
+  & .ad-jsetup__path {
+    margin-top: 8px;
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--ad-radius-sm);
+    background: var(--ad-surface);
+    border: 1px solid var(--ad-line);
+    font-family: var(--ad-figure);
+    font-size: 11px;
+    color: var(--ad-ink);
+  }
+
+  & .ad-jsetup__sec {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ad-line);
+  }
+
+  & .ad-jsetup__sec--quiet {
+    opacity: .92;
+  }
+
+  & .ad-jsetup__label {
+    font-size: 13px;
+    font-weight: 650;
+    margin-bottom: 8px;
+    color: var(--ad-ink);
+  }
+
+  & .ad-jsetup__choices {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  & .ad-jsetup__choice {
+    text-align: left;
+    padding: 10px 12px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--ad-surface);
+    cursor: pointer;
+    height: auto;
+    white-space: normal;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+
+    &.is-on {
+      border-color: var(--interactive-accent);
+      background: color-mix(in srgb, var(--interactive-accent) 10%, var(--ad-surface));
+    }
+  }
+
+  & .ad-jsetup__choice-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ad-ink);
+  }
+
+  & .ad-jsetup__choice-desc {
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ad-muted);
+  }
+
+  & .ad-jsetup__seg {
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  & .ad-jsetup__filerow {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+
+    & .ad-input { flex: 1; min-width: 0; }
+  }
+
+  & .ad-jsetup__textarea {
+    width: 100%;
+    min-height: 108px;
+    font-family: var(--ad-figure);
+    font-size: 12px;
+    line-height: 1.5;
+    resize: vertical;
+  }
+
+  & .ad-jsetup__headingbox {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+
+    & :is(.ad-select, .ad-input) { width: 100%; }
+  }
+
+  & .ad-jsetup__hint {
+    margin-top: 6px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--ad-muted);
+  }
+}

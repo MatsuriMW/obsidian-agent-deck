@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.38 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.39 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1869,7 +1869,41 @@ var settings_default = {
   "\u95EE\u7B54": "Q&A",
   "\u5408\u5E76": "Merge",
   "\u515C\u5E95": "Fallback",
-  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "Automatically merge multiple turns into one summary once the threshold is reached."
+  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "Automatically merge multiple turns into one summary once the threshold is reached.",
+  "\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u65B9\u5F0F": "Daily note creation",
+  "\u4E0E\u87BA\u65CB\u65E5\u7A0B\u5171\u7528\u540C\u4E00\u5957\u8BBE\u5B9A\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4E24\u6B3E\u63D2\u4EF6\u90FD\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u8BFB\u5199": "Shared with Nautilus Spiral; when set to Manual, both plugins wait until you create today's note",
+  "\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u7684\u5904\u7406\u65B9\u5F0F\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u5199\u5165": "What to do when today's daily note is missing; Manual waits until you create it",
+  "\u81EA\u52A8\u65B0\u5EFA": "Auto-create",
+  "\u624B\u52A8\u65B0\u5EFA": "Create manually",
+  "\u6253\u5F00\u5F15\u5BFC\u5F39\u7A97": "Open setup wizard",
+  "\u65B0\u5EFA\u65E5\u8BB0\u6A21\u677F": "Daily note template",
+  "\u6307\u5B9A\u8981\u5957\u7528\u7684\u6A21\u677F\u5185\u5BB9\uFF1B\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}} \u548C {{ai}}": "Template used for auto-creation; supports {{title}}, {{date}}, {{date:YYYY-MM-DD}}, {{time}}, and {{ai}}",
+  "\u8DDF\u968F Obsidian \u6A21\u677F\uFF08{name}\uFF09": "Follow Obsidian template ({name})",
+  "\u8DDF\u968F Obsidian \u6A21\u677F\uFF08\u5F53\u524D\u672A\u914D\u7F6E\uFF09": "Follow Obsidian template (not configured)",
+  "\u6307\u5B9A\u5E93\u5185\u6587\u4EF6": "Vault template file",
+  "\u624B\u52A8\u8F93\u5165\u6A21\u677F": "Custom template text",
+  "\u7A7A\u767D\u65E5\u8BB0": "Blank note",
+  "\u6A21\u677F\u6587\u4EF6\u8DEF\u5F84": "Template file path",
+  "\u9009\u62E9\u5E93\u5185 Markdown \u6587\u4EF6\u4F5C\u4E3A\u65B0\u5EFA\u65E5\u8BB0\u7684\u6A21\u677F": "Choose a Markdown file in this vault as your daily note template",
+  "\u8F93\u5165\u5E93\u5185\u6A21\u677F\u8DEF\u5F84\uFF0C\u5982\uFF1ATemplates/Daily.md": "Enter template path, e.g. Templates/Daily.md",
+  "\u9009\u62E9\u6587\u4EF6": "Choose file",
+  "\u6A21\u677F\u5185\u5BB9": "Template content",
+  "\u8F93\u5165\u6A21\u677F\u6B63\u6587\uFF08\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\u3001{{ai}}\uFF09": "Enter template body (supports {{title}}, {{date}}, {{date:YYYY-MM-DD}}, {{time}}, {{ai}})",
+  "\u4F8B\u5982\uFF1A\u7528 YAML \u5C5E\u6027\u5934\u3001## \u4ECA\u65E5\u8BA1\u5212 \u4E0E {{ai}} \u5360\u4F4D\u6807\u8BB0\u81EA\u5B9A\u4E49\u6A21\u677F": "e.g. YAML frontmatter, ## Today's plan, and an {{ai}} placeholder line",
+  "AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E": "AI auto-log placement",
+  "\u51B3\u5B9A\u9996\u6B21\u81EA\u52A8\u5199\u5165\u6216\u6574\u7406\u65F6\uFF0CAI \u533A\u5757\u63D2\u5728\u65E5\u8BB0\u7684\u54EA\u4E2A\u4F4D\u7F6E": "Where to place the AI block the first time Agent Deck writes to or organizes a note",
+  "\u65E5\u8BB0\u672B\u5C3E\uFF08\u9ED8\u8BA4\uFF09": "Bottom of note (default)",
+  "\u65E5\u8BB0\u5F00\u5934\uFF08\u5C5E\u6027\u5934\u4E0B\u65B9\uFF09": "Top of note (below frontmatter)",
+  "\u6307\u5B9A\u6807\u9898\u4E0B\u65B9": "Under a heading",
+  "\u6A21\u677F\u91CC\u7684 {{ai}} \u4F4D\u7F6E": "At template {{ai}} placeholder",
+  "\u76EE\u6807\u6807\u9898\u540D\u79F0": "Target heading",
+  "\u8F93\u5165\u6A21\u677F\u4E2D\u7684\u6807\u9898\uFF08\u5982 ## AI \u8BB0\u5F55\uFF09\uFF0C\u627E\u4E0D\u5230\u65F6\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E": "Heading name from your template (e.g. ## AI Log); falls back to bottom if missing",
+  "\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C": "e.g. ## AI Log or Today",
+  "\u672C\u9875\u76EE\u5F55": "On this page",
+  "\u5DE5\u5177\u4E0E\u9694\u79BB": "Tools & isolation",
+  "\u5916\u90E8 Agent \u63D0\u793A\u8BCD": "Agent trigger prompt",
+  "\u672C\u673A\u5BA2\u6237\u7AEF\u63A5\u5165": "Local client setup",
+  "\u624B\u52A8\u590D\u5236\u914D\u7F6E": "Manual config & CLI"
 };
 
 // src/locales/en/dialogs.js
@@ -2219,7 +2253,41 @@ var dialogs_default = {
   "\u5C40\u90E8\u56FE\u8C31": "Local Graph",
   "\u89E6\u53D1/\u9002\u7528\u573A\u666F\u77ED\u53E5\uFF08\u53EF\u9009\uFF09": "Trigger / applies-to summary (optional)",
   "\u6982\u5FF5\u53CC\u94FE\uFF08\u9017\u53F7\u5206\u9694\uFF0C\u53EF\u9009\uFF09": "Concept wikilinks (comma-separated, optional)",
-  "AI \u63D0\u70BC\u7684\u672A\u9A8C\u8BC1\u8FC7\u6E21\u72B6\u6001\u4E0D\u5199\u5165\u957F\u671F\u8BB0\u5FC6": "Unverified AI transitional status is excluded from long-term memory"
+  "AI \u63D0\u70BC\u7684\u672A\u9A8C\u8BC1\u8FC7\u6E21\u72B6\u6001\u4E0D\u5199\u5165\u957F\u671F\u8BB0\u5FC6": "Unverified AI transitional status is excluded from long-term memory",
+  // ----- unified daily-note setup modal -----
+  "\u8F93\u5165\u6A21\u677F\u7B14\u8BB0\u8DEF\u5F84\u6216\u6587\u4EF6\u540D\u2026": "Type template path or note name\u2026",
+  "\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA": "Today's daily note doesn't exist yet",
+  "\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8BB0\u89C4\u5212\u65F6\u95F4\u8F74\uFF0CAgent Deck \u7528\u5B83\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\uFF0C\u4E24\u6B3E\u63D2\u4EF6\u4F1A\u5171\u7528\u8FD9\u5957\u89C4\u5219\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "Nautilus Spiral uses today's note for your timeline, and Agent Deck logs AI sessions and conclusions there. Configure this once\u2014both plugins share the rule, and you can change it anytime in Settings.",
+  "Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8BB0\u6765\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u3001\u4EFB\u52A1\u8FDB\u5EA6\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\u540E\u7EED\u5C06\u81EA\u52A8\u6CBF\u7528\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "Agent Deck uses today's note to log AI sessions, task progress, and conclusions. Set this once to apply going forward; you can change it anytime in Settings.",
+  "\u4ECA\u65E5\u65E5\u8BB0\u8DEF\u5F84\uFF1A{path}": "Today's note path: {path}",
+  "1. \u4ECA\u5929\u6CA1\u6709\u65E5\u8BB0\u65F6\u600E\u4E48\u505A\uFF1F": "1. When today's note is missing:",
+  "\u5E2E\u6211\u81EA\u52A8\u65B0\u5EFA": "Create automatically",
+  "\u6309\u4E0B\u65B9\u9009\u5B9A\u7684\u6A21\u677F\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "Create today's note using the template chosen below",
+  "\u6211\u81EA\u5DF1\u624B\u52A8\u65B0\u5EFA": "I'll create it manually",
+  "\u4E0D\u62A2\u5148\u5EFA\u6587\u4EF6\uFF0C\u7B49\u4F60\u624B\u52A8\u6216\u7528 Templater \u5EFA\u597D\u540E\u518D\u81EA\u52A8\u5199\u5165": "Don't pre-create a file; wait until you create it manually or with Templater",
+  "2. \u65B0\u5EFA\u65E5\u8BB0\u65F6\u5957\u7528\u4EC0\u4E48\u6A21\u677F\uFF1F": "2. Template for auto-created notes:",
+  "Obsidian \u6A21\u677F\uFF08{name}\uFF09": "Obsidian template ({name})",
+  "Obsidian \u6A21\u677F\uFF08\u672A\u914D\u7F6E\uFF09": "Obsidian template (none configured)",
+  "\u9009\u5E93\u5185\u6587\u4EF6": "Pick a vault file",
+  "\u5C06\u8BFB\u53D6\u6A21\u677F\u300C{path}\u300D\u5E76\u5C55\u5F00 {{date}}\u3001{{time}}\u3001{{title}}\u3002": "Reads \u201C{path}\u201D and expands {{date}}, {{time}}, and {{title}}.",
+  "\u672A\u68C0\u6D4B\u5230 Obsidian \u6838\u5FC3\u300C\u65E5\u8BB0\u300D\u6216 Periodic Notes \u6A21\u677F\uFF0C\u5C06\u6309\u9ED8\u8BA4\u683C\u5F0F\u65B0\u5EFA\u3002": "No Daily notes or Periodic Notes template detected; a blank/default note will be created.",
+  "\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5199\u4E00\u884C {{ai}} \u53EF\u7CBE\u786E\u6307\u5B9A AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E\u3002": "Supports {{title}}, {{date}}, {{date:YYYY-MM-DD}}, {{time}}; put {{ai}} on its own line to pin the AI region.",
+  "\u4ECA\u5929\u5148\u4E0D\u5EFA": "Not today",
+  "\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "Save & create today's note",
+  "\u8BB0\u4F4F\u8BBE\u5B9A": "Remember choice",
+  "{n}. AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u653E\u5230\u6A21\u677F\u7684\u54EA\u91CC\uFF1F": "{n}. Where should the AI auto-log region go?",
+  "{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8BB0\u540E\uFF0CAI \u81EA\u52A8\u8BB0\u5F55\u9ED8\u8BA4\u653E\u54EA\u91CC\uFF1F": "{n}. Where should AI auto-logs go once your note exists?",
+  "\u65E5\u8BB0\u672B\u5C3E": "Bottom",
+  "\u65E5\u8BB0\u5F00\u5934": "Top",
+  "\u6307\u5B9A\u6807\u9898\u4E0B": "Under heading",
+  "\u6A21\u677F {{ai}} \u5904\uFF08\u5DF2\u68C0\u6D4B\u5230\uFF09": "At {{ai}} (detected)",
+  "\u6A21\u677F {{ai}} \u5904": "At {{ai}}",
+  "\u4F1A\u81EA\u52A8\u907F\u5F00 YAML \u5C5E\u6027\u5934\uFF08frontmatter\uFF09\uFF0C\u63D2\u5728\u6B63\u6587\u6700\u4E0A\u65B9\u3002": "Placed cleanly below YAML frontmatter at the top of the body.",
+  "\u5DF2\u8BC6\u522B\u6A21\u677F\u4E2D\u7684 {{ai}} \u6807\u8BB0\uFF0C\u9996\u6B21\u5199\u5165 AI \u8BB0\u5F55\u65F6\u4F1A\u539F\u4F4D\u66FF\u6362\u5B83\u3002": "Found {{ai}} in your template\u2014it will be replaced in place on first AI write.",
+  "\u5728\u6A21\u677F\u4EFB\u610F\u4F4D\u7F6E\u5199\u4E00\u884C {{ai}} \u5373\u53EF\u7CBE\u786E\u5360\u4F4D\uFF1B\u672A\u5199\u8BE5\u6807\u8BB0\u65F6\u5C06\u843D\u5728\u65E5\u8BB0\u672B\u5C3E\u3002": "Add {{ai}} anywhere in your template; falls back to the bottom if absent.",
+  "\u624B\u52A8\u8F93\u5165\u5176\u4ED6\u6807\u9898\u2026": "Enter another heading\u2026",
+  "\u8F93\u5165\u76EE\u6807\u6807\u9898\uFF0C\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C": "Enter heading name, e.g. ## AI Log or Today",
+  "\u5F53\u5929\u65E5\u8BB0\u91CC\u82E5\u627E\u4E0D\u5230\u8BE5\u6807\u9898\uFF0C\u5C06\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E\u3002": "If that heading isn't found in the note, AI logs go to the bottom."
 };
 
 // src/locales/en/writers.js
@@ -4911,7 +4979,74 @@ var zh_TW_default = {
   "\u95EE\u7B54": "\u554F\u7B54",
   "\u5408\u5E76": "\u5408\u4F75",
   "\u515C\u5E95": "\u515C\u5E95",
-  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "\u9577\u4EFB\u52D9\u9054\u5230\u95BE\u503C\u5F8C\u81EA\u52D5\u5408\u4F75\u591A\u8F2A\u8A18\u9304\u70BA\u4E00\u6BB5\u7E3D\u7D50"
+  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "\u9577\u4EFB\u52D9\u9054\u5230\u95BE\u503C\u5F8C\u81EA\u52D5\u5408\u4F75\u591A\u8F2A\u8A18\u9304\u70BA\u4E00\u6BB5\u7E3D\u7D50",
+  "\u8F93\u5165\u6A21\u677F\u7B14\u8BB0\u8DEF\u5F84\u6216\u6587\u4EF6\u540D\u2026": "\u8F38\u5165\u7BC4\u672C\u7B46\u8A18\u8DEF\u5F91\u6216\u6A94\u6848\u540D\u2026",
+  "\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA": "\u4ECA\u65E5\u65E5\u8A18\u9084\u672A\u5EFA\u7ACB",
+  "\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8BB0\u89C4\u5212\u65F6\u95F4\u8F74\uFF0CAgent Deck \u7528\u5B83\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\uFF0C\u4E24\u6B3E\u63D2\u4EF6\u4F1A\u5171\u7528\u8FD9\u5957\u89C4\u5219\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8A18\u898F\u5283\u6642\u9593\u8EF8\uFF0CAgent Deck \u7528\u5B83\u81EA\u52D5\u8A18\u9304 AI \u6703\u8A71\u8207\u7D50\u8AD6\u3002\u8A2D\u597D\u4E00\u6B21\u5F8C\uFF0C\u5169\u6B3E\u5916\u639B\u6703\u5171\u7528\u9019\u5957\u898F\u5247\uFF0C\u4E4B\u5F8C\u96A8\u6642\u53EF\u5728\u8A2D\u5B9A\u88E1\u4FEE\u6539\u3002",
+  "Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8BB0\u6765\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u3001\u4EFB\u52A1\u8FDB\u5EA6\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\u540E\u7EED\u5C06\u81EA\u52A8\u6CBF\u7528\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002": "Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8A18\u4F86\u81EA\u52D5\u8A18\u9304 AI \u6703\u8A71\u3001\u4EFB\u52D9\u9032\u5EA6\u8207\u7D50\u8AD6\u3002\u8A2D\u597D\u4E00\u6B21\u5F8C\u5F8C\u7E8C\u5C07\u81EA\u52D5\u6CBF\u7528\uFF0C\u4E4B\u5F8C\u96A8\u6642\u53EF\u5728\u8A2D\u5B9A\u88E1\u4FEE\u6539\u3002",
+  "\u4ECA\u65E5\u65E5\u8BB0\u8DEF\u5F84\uFF1A{path}": "\u4ECA\u65E5\u65E5\u8A18\u8DEF\u5F91\uFF1A{path}",
+  "1. \u4ECA\u5929\u6CA1\u6709\u65E5\u8BB0\u65F6\u600E\u4E48\u505A\uFF1F": "1. \u4ECA\u5929\u6C92\u6709\u65E5\u8A18\u6642\u600E\u9EBC\u505A\uFF1F",
+  "\u5E2E\u6211\u81EA\u52A8\u65B0\u5EFA": "\u5E6B\u6211\u81EA\u52D5\u65B0\u5EFA",
+  "\u6309\u4E0B\u65B9\u9009\u5B9A\u7684\u6A21\u677F\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "\u4F9D\u4E0B\u65B9\u9078\u5B9A\u7684\u7BC4\u672C\u5EFA\u7ACB\u4ECA\u65E5\u65E5\u8A18",
+  "\u6211\u81EA\u5DF1\u624B\u52A8\u65B0\u5EFA": "\u6211\u81EA\u5DF1\u624B\u52D5\u65B0\u5EFA",
+  "\u4E0D\u62A2\u5148\u5EFA\u6587\u4EF6\uFF0C\u7B49\u4F60\u624B\u52A8\u6216\u7528 Templater \u5EFA\u597D\u540E\u518D\u81EA\u52A8\u5199\u5165": "\u4E0D\u6436\u5148\u5EFA\u6A94\u6848\uFF0C\u7B49\u4F60\u624B\u52D5\u6216\u7528 Templater \u5EFA\u597D\u5F8C\u518D\u81EA\u52D5\u5BEB\u5165",
+  "2. \u65B0\u5EFA\u65E5\u8BB0\u65F6\u5957\u7528\u4EC0\u4E48\u6A21\u677F\uFF1F": "2. \u65B0\u5EFA\u65E5\u8A18\u6642\u5957\u7528\u4EC0\u9EBC\u7BC4\u672C\uFF1F",
+  "Obsidian \u6A21\u677F\uFF08{name}\uFF09": "Obsidian \u7BC4\u672C\uFF08{name}\uFF09",
+  "Obsidian \u6A21\u677F\uFF08\u672A\u914D\u7F6E\uFF09": "Obsidian \u7BC4\u672C\uFF08\u672A\u8A2D\u5B9A\uFF09",
+  "\u9009\u5E93\u5185\u6587\u4EF6": "\u9078\u5EAB\u5167\u6A94\u6848",
+  "\u624B\u52A8\u8F93\u5165\u6A21\u677F": "\u624B\u52D5\u8F38\u5165\u7BC4\u672C",
+  "\u7A7A\u767D\u65E5\u8BB0": "\u7A7A\u767D\u65E5\u8A18",
+  "\u5C06\u8BFB\u53D6\u6A21\u677F\u300C{path}\u300D\u5E76\u5C55\u5F00 {{date}}\u3001{{time}}\u3001{{title}}\u3002": "\u5C07\u8B80\u53D6\u7BC4\u672C\u300C{path}\u300D\u4E26\u5C55\u958B {{date}}\u3001{{time}}\u3001{{title}}\u3002",
+  "\u672A\u68C0\u6D4B\u5230 Obsidian \u6838\u5FC3\u300C\u65E5\u8BB0\u300D\u6216 Periodic Notes \u6A21\u677F\uFF0C\u5C06\u6309\u9ED8\u8BA4\u683C\u5F0F\u65B0\u5EFA\u3002": "\u672A\u5075\u6E2C\u5230 Obsidian \u6838\u5FC3\u300C\u65E5\u8A18\u300D\u6216 Periodic Notes \u7BC4\u672C\uFF0C\u5C07\u4F9D\u9810\u8A2D\u683C\u5F0F\u65B0\u5EFA\u3002",
+  "\u8F93\u5165\u5E93\u5185\u6A21\u677F\u8DEF\u5F84\uFF0C\u5982\uFF1ATemplates/Daily.md": "\u8F38\u5165\u5EAB\u5167\u7BC4\u672C\u8DEF\u5F91\uFF0C\u5982\uFF1ATemplates/Daily.md",
+  "\u9009\u62E9\u6587\u4EF6": "\u9078\u64C7\u6A94\u6848",
+  "\u4F8B\u5982\uFF1A\u7528 YAML \u5C5E\u6027\u5934\u3001## \u4ECA\u65E5\u8BA1\u5212 \u4E0E {{ai}} \u5360\u4F4D\u6807\u8BB0\u81EA\u5B9A\u4E49\u6A21\u677F": "\u4F8B\u5982\uFF1A\u7528 YAML \u5C6C\u6027\u982D\u3001## \u4ECA\u65E5\u8A08\u756B \u8207 {{ai}} \u4F54\u4F4D\u6A19\u8A18\u81EA\u8A02\u7BC4\u672C",
+  "\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5199\u4E00\u884C {{ai}} \u53EF\u7CBE\u786E\u6307\u5B9A AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E\u3002": "\u652F\u63F4 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5BEB\u4E00\u884C {{ai}} \u53EF\u7CBE\u78BA\u6307\u5B9A AI \u81EA\u52D5\u8A18\u9304\u5340\u57DF\u4F4D\u7F6E\u3002",
+  "\u4ECA\u5929\u5148\u4E0D\u5EFA": "\u4ECA\u5929\u5148\u4E0D\u5EFA",
+  "\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "\u5132\u5B58\u4E26\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8A18",
+  "\u8BB0\u4F4F\u8BBE\u5B9A": "\u8A18\u4F4F\u8A2D\u5B9A",
+  "{n}. AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u653E\u5230\u6A21\u677F\u7684\u54EA\u91CC\uFF1F": "{n}. AI \u81EA\u52D5\u8A18\u9304\u5340\u57DF\u653E\u5230\u7BC4\u672C\u7684\u54EA\u88E1\uFF1F",
+  "{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8BB0\u540E\uFF0CAI \u81EA\u52A8\u8BB0\u5F55\u9ED8\u8BA4\u653E\u54EA\u91CC\uFF1F": "{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8A18\u5F8C\uFF0CAI \u81EA\u52D5\u8A18\u9304\u9810\u8A2D\u653E\u54EA\u88E1\uFF1F",
+  "\u65E5\u8BB0\u672B\u5C3E": "\u65E5\u8A18\u672B\u5C3E",
+  "\u65E5\u8BB0\u5F00\u5934": "\u65E5\u8A18\u958B\u982D",
+  "\u6307\u5B9A\u6807\u9898\u4E0B": "\u6307\u5B9A\u6A19\u984C\u4E0B",
+  "\u6A21\u677F {{ai}} \u5904\uFF08\u5DF2\u68C0\u6D4B\u5230\uFF09": "\u7BC4\u672C {{ai}} \u8655\uFF08\u5DF2\u5075\u6E2C\u5230\uFF09",
+  "\u6A21\u677F {{ai}} \u5904": "\u7BC4\u672C {{ai}} \u8655",
+  "\u4F1A\u81EA\u52A8\u907F\u5F00 YAML \u5C5E\u6027\u5934\uFF08frontmatter\uFF09\uFF0C\u63D2\u5728\u6B63\u6587\u6700\u4E0A\u65B9\u3002": "\u6703\u81EA\u52D5\u907F\u958B YAML \u5C6C\u6027\u982D\uFF08frontmatter\uFF09\uFF0C\u63D2\u5728\u6B63\u6587\u6700\u4E0A\u65B9\u3002",
+  "\u5DF2\u8BC6\u522B\u6A21\u677F\u4E2D\u7684 {{ai}} \u6807\u8BB0\uFF0C\u9996\u6B21\u5199\u5165 AI \u8BB0\u5F55\u65F6\u4F1A\u539F\u4F4D\u66FF\u6362\u5B83\u3002": "\u5DF2\u8B58\u5225\u7BC4\u672C\u4E2D\u7684 {{ai}} \u6A19\u8A18\uFF0C\u9996\u6B21\u5BEB\u5165 AI \u8A18\u9304\u6642\u6703\u539F\u4F4D\u66FF\u63DB\u5B83\u3002",
+  "\u5728\u6A21\u677F\u4EFB\u610F\u4F4D\u7F6E\u5199\u4E00\u884C {{ai}} \u5373\u53EF\u7CBE\u786E\u5360\u4F4D\uFF1B\u672A\u5199\u8BE5\u6807\u8BB0\u65F6\u5C06\u843D\u5728\u65E5\u8BB0\u672B\u5C3E\u3002": "\u5728\u7BC4\u672C\u4EFB\u610F\u4F4D\u7F6E\u5BEB\u4E00\u884C {{ai}} \u5373\u53EF\u7CBE\u78BA\u4F54\u4F4D\uFF1B\u672A\u5BEB\u8A72\u6A19\u8A18\u6642\u5C07\u843D\u5728\u65E5\u8A18\u672B\u5C3E\u3002",
+  "\u624B\u52A8\u8F93\u5165\u5176\u4ED6\u6807\u9898\u2026": "\u624B\u52D5\u8F38\u5165\u5176\u4ED6\u6A19\u984C\u2026",
+  "\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C": "\u5982\uFF1A## AI \u8A18\u9304 \u6216 \u4ECA\u65E5\u5DE5\u4F5C",
+  "\u8F93\u5165\u76EE\u6807\u6807\u9898\uFF0C\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C": "\u8F38\u5165\u76EE\u6A19\u6A19\u984C\uFF0C\u5982\uFF1A## AI \u8A18\u9304 \u6216 \u4ECA\u65E5\u5DE5\u4F5C",
+  "\u5F53\u5929\u65E5\u8BB0\u91CC\u82E5\u627E\u4E0D\u5230\u8BE5\u6807\u9898\uFF0C\u5C06\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E\u3002": "\u7576\u5929\u65E5\u8A18\u88E1\u82E5\u627E\u4E0D\u5230\u8A72\u6A19\u984C\uFF0C\u5C07\u81EA\u52D5\u843D\u5230\u65E5\u8A18\u672B\u5C3E\u3002",
+  "\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u65B9\u5F0F": "\u4ECA\u65E5\u65E5\u8A18\u5EFA\u7ACB\u65B9\u5F0F",
+  "\u4E0E\u87BA\u65CB\u65E5\u7A0B\u5171\u7528\u540C\u4E00\u5957\u8BBE\u5B9A\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4E24\u6B3E\u63D2\u4EF6\u90FD\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u8BFB\u5199": "\u8207\u87BA\u65CB\u65E5\u7A0B\u5171\u7528\u540C\u4E00\u5957\u8A2D\u5B9A\uFF1B\u9078\u300C\u624B\u52D5\u65B0\u5EFA\u300D\u6642\u5169\u6B3E\u5916\u639B\u90FD\u6703\u7B49\u4F60\u5EFA\u597D\u5F8C\u518D\u8B80\u5BEB",
+  "\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u7684\u5904\u7406\u65B9\u5F0F\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u5199\u5165": "\u4ECA\u65E5\u65E5\u8A18\u4E0D\u5B58\u5728\u6642\u7684\u8655\u7406\u65B9\u5F0F\uFF1B\u9078\u300C\u624B\u52D5\u65B0\u5EFA\u300D\u6642\u6703\u7B49\u4F60\u5EFA\u597D\u5F8C\u518D\u5BEB\u5165",
+  "\u81EA\u52A8\u65B0\u5EFA": "\u81EA\u52D5\u65B0\u5EFA",
+  "\u624B\u52A8\u65B0\u5EFA": "\u624B\u52D5\u65B0\u5EFA",
+  "\u6253\u5F00\u5F15\u5BFC\u5F39\u7A97": "\u958B\u555F\u5F15\u5C0E\u5F48\u7A97",
+  "\u65B0\u5EFA\u65E5\u8BB0\u6A21\u677F": "\u65B0\u5EFA\u65E5\u8A18\u7BC4\u672C",
+  "\u6307\u5B9A\u8981\u5957\u7528\u7684\u6A21\u677F\u5185\u5BB9\uFF1B\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}} \u548C {{ai}}": "\u6307\u5B9A\u8981\u5957\u7528\u7684\u7BC4\u672C\u5167\u5BB9\uFF1B\u652F\u63F4 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}} \u548C {{ai}}",
+  "\u8DDF\u968F Obsidian \u6A21\u677F\uFF08{name}\uFF09": "\u8DDF\u96A8 Obsidian \u7BC4\u672C\uFF08{name}\uFF09",
+  "\u8DDF\u968F Obsidian \u6A21\u677F\uFF08\u5F53\u524D\u672A\u914D\u7F6E\uFF09": "\u8DDF\u96A8 Obsidian \u7BC4\u672C\uFF08\u76EE\u524D\u672A\u8A2D\u5B9A\uFF09",
+  "\u6307\u5B9A\u5E93\u5185\u6587\u4EF6": "\u6307\u5B9A\u5EAB\u5167\u6A94\u6848",
+  "\u6A21\u677F\u6587\u4EF6\u8DEF\u5F84": "\u7BC4\u672C\u6A94\u6848\u8DEF\u5F91",
+  "\u9009\u62E9\u5E93\u5185 Markdown \u6587\u4EF6\u4F5C\u4E3A\u65B0\u5EFA\u65E5\u8BB0\u7684\u6A21\u677F": "\u9078\u64C7\u5EAB\u5167 Markdown \u6A94\u6848\u4F5C\u70BA\u65B0\u5EFA\u65E5\u8A18\u7684\u7BC4\u672C",
+  "\u6A21\u677F\u5185\u5BB9": "\u7BC4\u672C\u5167\u5BB9",
+  "\u8F93\u5165\u6A21\u677F\u6B63\u6587\uFF08\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\u3001{{ai}}\uFF09": "\u8F38\u5165\u7BC4\u672C\u6B63\u6587\uFF08\u652F\u63F4 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\u3001{{ai}}\uFF09",
+  "AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E": "AI \u81EA\u52D5\u8A18\u9304\u5340\u57DF\u4F4D\u7F6E",
+  "\u51B3\u5B9A\u9996\u6B21\u81EA\u52A8\u5199\u5165\u6216\u6574\u7406\u65F6\uFF0CAI \u533A\u5757\u63D2\u5728\u65E5\u8BB0\u7684\u54EA\u4E2A\u4F4D\u7F6E": "\u6C7A\u5B9A\u9996\u6B21\u81EA\u52D5\u5BEB\u5165\u6216\u6574\u7406\u6642\uFF0CAI \u5340\u584A\u63D2\u5728\u65E5\u8A18\u7684\u54EA\u500B\u4F4D\u7F6E",
+  "\u65E5\u8BB0\u672B\u5C3E\uFF08\u9ED8\u8BA4\uFF09": "\u65E5\u8A18\u672B\u5C3E\uFF08\u9810\u8A2D\uFF09",
+  "\u65E5\u8BB0\u5F00\u5934\uFF08\u5C5E\u6027\u5934\u4E0B\u65B9\uFF09": "\u65E5\u8A18\u958B\u982D\uFF08\u5C6C\u6027\u982D\u4E0B\u65B9\uFF09",
+  "\u6307\u5B9A\u6807\u9898\u4E0B\u65B9": "\u6307\u5B9A\u6A19\u984C\u4E0B\u65B9",
+  "\u6A21\u677F\u91CC\u7684 {{ai}} \u4F4D\u7F6E": "\u7BC4\u672C\u88E1\u7684 {{ai}} \u4F4D\u7F6E",
+  "\u76EE\u6807\u6807\u9898\u540D\u79F0": "\u76EE\u6A19\u6A19\u984C\u540D\u7A31",
+  "\u8F93\u5165\u6A21\u677F\u4E2D\u7684\u6807\u9898\uFF08\u5982 ## AI \u8BB0\u5F55\uFF09\uFF0C\u627E\u4E0D\u5230\u65F6\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E": "\u8F38\u5165\u7BC4\u672C\u4E2D\u7684\u6A19\u984C\uFF08\u5982 ## AI \u8A18\u9304\uFF09\uFF0C\u627E\u4E0D\u5230\u6642\u81EA\u52D5\u843D\u5230\u65E5\u8A18\u672B\u5C3E",
+  "\u672C\u9875\u76EE\u5F55": "\u672C\u9801\u76EE\u9304",
+  "\u5DE5\u5177\u4E0E\u9694\u79BB": "\u5DE5\u5177\u8207\u9694\u96E2",
+  "\u5916\u90E8 Agent \u63D0\u793A\u8BCD": "\u5916\u90E8 Agent \u63D0\u793A\u8A5E",
+  "\u672C\u673A\u5BA2\u6237\u7AEF\u63A5\u5165": "\u672C\u6A5F\u7528\u6236\u7AEF\u63A5\u5165",
+  "\u624B\u52A8\u590D\u5236\u914D\u7F6E": "\u624B\u52D5\u8907\u88FD\u8A2D\u5B9A"
 };
 
 // src/i18n.js
@@ -5588,7 +5723,17 @@ var DEFAULTS = {
   journalAutoWrite: true,
   // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalAutoCreate: true,
-  // 今天日记不存在时自动新建；关闭后只写入已存在的日记
+  // 今天日记不存在时自动新建；关闭后只写入已存在的日记（同步 journalPolicy.mode）
+  journalPolicy: {
+    configured: false,
+    mode: "auto",
+    templateSource: "obsidian",
+    templatePath: "",
+    templateText: "",
+    aiPlacement: "bottom",
+    aiAnchorHeading: "",
+    updatedAt: 0
+  },
   journalSync: true,
   journalLayout: null,
   uiLanguage: "auto",
@@ -8384,6 +8529,213 @@ ${bands.join("\n\n---\n\n")}
 ${END}`, tail].filter(Boolean).join("\n\n").replace(/\n*$/, "\n");
 }
 
+// src/journal-policy.js
+var AI_ANCHOR_COMMENT = "<!-- agent-deck:ai-anchor -->";
+var AI_PLACEHOLDER_RE = /\{\{\s*ai\s*\}\}/i;
+var AI_MARKER_RE = /(<!--\s*agent-deck:ai-anchor\s*-->|\{\{\s*ai\s*\}\})/i;
+var JOURNAL_MODES = ["auto", "manual"];
+var TEMPLATE_SOURCES = ["obsidian", "file", "custom", "none"];
+var AI_PLACEMENTS = ["bottom", "top", "after-heading", "placeholder"];
+var DEFAULT_JOURNAL_POLICY = {
+  configured: false,
+  mode: "auto",
+  templateSource: "obsidian",
+  templatePath: "",
+  templateText: "",
+  aiPlacement: "bottom",
+  aiAnchorHeading: "",
+  updatedAt: 0
+};
+function normalizeJournalPolicy(raw, { legacyAutoCreate = true } = {}) {
+  const src = raw && typeof raw === "object" ? raw : {};
+  const configured = src.configured === true;
+  const mode = JOURNAL_MODES.includes(src.mode) ? src.mode : legacyAutoCreate === false ? "manual" : "auto";
+  const templateSource = TEMPLATE_SOURCES.includes(src.templateSource) ? src.templateSource : "obsidian";
+  const templatePath = String(src.templatePath || "").trim();
+  const templateText = String(src.templateText ?? "");
+  const aiPlacement = AI_PLACEMENTS.includes(src.aiPlacement) ? src.aiPlacement : "bottom";
+  const aiAnchorHeading = String(src.aiAnchorHeading || "").trim();
+  const updatedAt = Number.isFinite(Number(src.updatedAt)) ? Number(src.updatedAt) : 0;
+  return {
+    configured,
+    mode,
+    templateSource,
+    templatePath,
+    templateText,
+    aiPlacement,
+    aiAnchorHeading,
+    updatedAt
+  };
+}
+function splitFrontMatterLines(lines) {
+  if (!Array.isArray(lines) || (lines[0] || "").trim() !== "---") return { head: [], start: 0 };
+  for (let i = 1; i < lines.length; i++) {
+    if (lines[i].trim() !== "---") continue;
+    const body = lines.slice(1, i);
+    if (body.some((line) => /^[^\s:#-][^\n:]*\s*:/.test(line))) {
+      return { head: lines.slice(0, i + 1), start: i + 1 };
+    }
+    return { head: [], start: 0 };
+  }
+  return { head: [], start: 0 };
+}
+function extractTemplateHeadings(markdown) {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const { start } = splitFrontMatterLines(lines);
+  const fences = fencedLines(lines);
+  const out = [];
+  for (let i = start; i < lines.length; i++) {
+    if (fences.has(i)) continue;
+    const m = /^(#{1,6})\s+(.+?)\s*#*$/.exec(lines[i]);
+    if (!m) continue;
+    out.push({ level: m[1].length, raw: `${m[1]} ${m[2]}`, text: m[2].trim() });
+  }
+  return out;
+}
+function hasAiPlaceholder(markdown) {
+  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+  const fences = fencedLines(lines);
+  for (let i = 0; i < lines.length; i++) {
+    if (fences.has(i)) continue;
+    if (AI_PLACEHOLDER_RE.test(lines[i]) || lines[i].includes(AI_ANCHOR_COMMENT)) return true;
+  }
+  return false;
+}
+function expandJournalTemplateVars(text, {
+  title = "",
+  now = /* @__PURE__ */ new Date(),
+  dateFormat = "YYYY-MM-DD",
+  timeFormat = "HH:mm",
+  keepAiAnchor = true
+} = {}) {
+  const lines = String(text ?? "").replace(/\r\n/g, "\n").split("\n");
+  const fences = fencedLines(lines);
+  const varExpanded = lines.map(
+    (line) => line.replace(/\{\{\s*(date|time|title)\s*(?::([^{}]*))?\s*\}\}/g, (_, name, fmt) => {
+      if (name === "title") return title;
+      const format = String(fmt || "").trim() || (name === "date" ? dateFormat : timeFormat);
+      return formatDate(now, format);
+    })
+  );
+  return varExpanded.map((line, i) => {
+    if (fences.has(i)) return line;
+    if (!AI_PLACEHOLDER_RE.test(line)) return line;
+    const replaced = line.replace(/\{\{\s*ai\s*\}\}/gi, keepAiAnchor ? AI_ANCHOR_COMMENT : "");
+    return replaced;
+  }).join("\n");
+}
+function detectObsidianDailyTemplate(app) {
+  let tplPath = "";
+  try {
+    tplPath = String(dailyNotesOptions(app)?.template || "").trim();
+  } catch {
+  }
+  if (!tplPath) {
+    try {
+      const pn = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+      if (pn?.enabled) tplPath = String(pn.template || "").trim();
+    } catch {
+    }
+  }
+  return tplPath;
+}
+function resolveVaultTemplateFile(app, tplPath) {
+  const p = String(tplPath || "").trim();
+  if (!p || !app?.vault) return null;
+  const cand = app.vault.getAbstractFileByPath?.(p) || (/\.md$/i.test(p) ? null : app.vault.getAbstractFileByPath?.(`${p}.md`)) || app.metadataCache?.getFirstLinkpathDest?.(p, "");
+  return cand && typeof cand.extension === "string" ? cand : null;
+}
+async function resolveJournalInitialContent(app, policy, { path: path34 = "", now = /* @__PURE__ */ new Date(), fallbackSeed = "" } = {}) {
+  const p = normalizeJournalPolicy(policy);
+  if (p.templateSource === "none") return fallbackSeed;
+  let format = {};
+  try {
+    format = app?.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
+  } catch {
+  }
+  const cleanPath = String(path34 || "");
+  const title = cleanPath.slice(cleanPath.lastIndexOf("/") + 1).replace(/\.md$/i, "");
+  const expandOpts = {
+    title,
+    now,
+    dateFormat: format.dateFormat || "YYYY-MM-DD",
+    timeFormat: format.timeFormat || "HH:mm",
+    keepAiAnchor: true
+  };
+  if (p.templateSource === "custom") {
+    return expandJournalTemplateVars(p.templateText || "", expandOpts);
+  }
+  const tplPath = p.templateSource === "file" ? p.templatePath : detectObsidianDailyTemplate(app);
+  if (!tplPath) return fallbackSeed;
+  const file = resolveVaultTemplateFile(app, tplPath);
+  if (!file) return fallbackSeed;
+  try {
+    const raw = await app.vault.read(file);
+    return expandJournalTemplateVars(raw, expandOpts);
+  } catch {
+    return fallbackSeed;
+  }
+}
+function joinBoundary(beforeStr, afterStr) {
+  let head = String(beforeStr || "").replace(/[ \t]+$/, "");
+  if (head) {
+    if (head.endsWith("\n\n")) {
+    } else if (head.endsWith("\n")) head += "\n";
+    else head += "\n\n";
+  }
+  const trimmedAfter = String(afterStr || "").replace(/^[ \t]*\n*/, "");
+  let tail = "\n";
+  if (trimmedAfter) {
+    tail = "\n\n" + trimmedAfter;
+    if (!tail.endsWith("\n")) tail += "\n";
+  }
+  return { head, tail };
+}
+function findAiInsertPosition(text, policy = {}) {
+  const normalized2 = String(text ?? "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized2.split("\n");
+  const fences = fencedLines(lines);
+  for (let i = 0; i < lines.length; i++) {
+    if (fences.has(i)) continue;
+    const m = AI_MARKER_RE.exec(lines[i]);
+    if (!m) continue;
+    const restLine = (lines[i].slice(0, m.index) + lines[i].slice(m.index + m[0].length)).trim();
+    if (!restLine) {
+      return joinBoundary(lines.slice(0, i).join("\n"), lines.slice(i + 1).join("\n"));
+    }
+    const beforeLines = [...lines.slice(0, i), lines[i].slice(0, m.index).trimEnd()];
+    const afterLines = [lines[i].slice(m.index + m[0].length).trimStart(), ...lines.slice(i + 1)];
+    return joinBoundary(beforeLines.join("\n"), afterLines.join("\n"));
+  }
+  const placement = AI_PLACEMENTS.includes(policy?.aiPlacement) ? policy.aiPlacement : "bottom";
+  if (placement === "top") {
+    const { start } = splitFrontMatterLines(lines);
+    return joinBoundary(lines.slice(0, start).join("\n"), lines.slice(start).join("\n"));
+  }
+  if (placement === "after-heading") {
+    const targetRaw = String(policy?.aiAnchorHeading || "").trim();
+    if (targetRaw) {
+      const targetText = targetRaw.replace(/^#{1,6}\s+/, "").trim().toLowerCase();
+      const { start } = splitFrontMatterLines(lines);
+      for (let i = start; i < lines.length; i++) {
+        if (fences.has(i)) continue;
+        const hm = /^(#{1,6})\s+(.+?)\s*#*$/.exec(lines[i]);
+        if (!hm) continue;
+        const hText = hm[2].trim().toLowerCase();
+        if (lines[i].trim().toLowerCase() === targetRaw.toLowerCase() || hText === targetText) {
+          return joinBoundary(lines.slice(0, i + 1).join("\n"), lines.slice(i + 1).join("\n"));
+        }
+      }
+    }
+  }
+  return joinBoundary(normalized2, "");
+}
+function getSharedJournalPromptState(app) {
+  const store = globalThis.__obSharedJournalPromptState || (globalThis.__obSharedJournalPromptState = {});
+  const key = app?.vault?.getName?.() || "__default__";
+  return store[key] || (store[key] = { modalPromise: null, dismissedDay: "" });
+}
+
 // src/organize-journal.js
 var DONE_HEADING = "## \u5DF2\u5B8C\u6210";
 var ACTIVE_HEADING = "## \u8FDB\u884C\u4E2D";
@@ -8394,14 +8746,7 @@ var ORDER = ["DOING", "NOW", "IN-PROGRESS", "DELEGATED", "NEEDOK", "TOREVIEW", "
 var rank = (kw) => ORDER.includes(kw) ? ORDER.indexOf(kw) : ORDER.length;
 var isRule = (line) => /^\s*---+\s*$/.test(line);
 function splitFrontMatter(lines) {
-  if ((lines[0] || "").trim() !== "---") return { head: [], start: 0 };
-  for (let i = 1; i < lines.length; i++) {
-    if (lines[i].trim() !== "---") continue;
-    const body = lines.slice(1, i);
-    if (body.some((line) => /^[\w-]+\s*:/.test(line))) return { head: lines.slice(0, i + 1), start: i + 1 };
-    return { head: [], start: 0 };
-  }
-  return { head: [], start: 0 };
+  return splitFrontMatterLines(lines);
 }
 function blockText(lines, start, end) {
   const chunk = lines.slice(start, end);
@@ -8486,9 +8831,16 @@ function planBoundedJournal(text, options, custom) {
     todo: sectionPlans.todo.rest,
     done: sectionPlans.done.rest
   };
-  let head = region ? region.rawHead : normalized2;
-  if (!region && head && !head.endsWith("\n\n")) head += head.endsWith("\n") ? "\n" : "\n\n";
-  const tail = (region?.sections.notes?.text ? "\n\n" + region.sections.notes.text : "") + (region ? region.rawTail : "\n");
+  let head;
+  let tail;
+  if (region) {
+    head = region.rawHead;
+    tail = (region.sections.notes?.text ? "\n\n" + region.sections.notes.text : "") + region.rawTail;
+  } else {
+    const pos = findAiInsertPosition(normalized2, options.placementPolicy || {});
+    head = pos.head;
+    tail = pos.tail;
+  }
   return {
     head,
     tail,
@@ -8504,9 +8856,9 @@ function planBoundedJournal(text, options, custom) {
     count: { done: done.length, active: active2.length + todo.length, total: done.length + active2.length + todo.length }
   };
 }
-function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout, boundedBody = false, showTimeRange = true } = {}) {
+function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout, boundedBody = false, showTimeRange = true, placementPolicy = null } = {}) {
   const custom = readJournalLayout(text);
-  if (layout?.order.includes("todo") || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange }, custom);
+  if (layout?.order.includes("todo") || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange, placementPolicy }, custom);
   if (custom) {
     const canonical = [custom.head, `---
 ${DONE_HEADING}
@@ -9013,6 +9365,333 @@ async function archiveCompletedTo(plugin, file, base, plan, { path: path34, orde
   }
   await plugin.saveSettings?.();
   return { target, moved: blocks.length };
+}
+
+// src/journal-setup-modal.js
+var obsidianNs = __toESM(require("obsidian"), 1);
+var { Modal } = obsidianNs;
+var FuzzySuggestModalBase = obsidianNs.FuzzySuggestModal || Modal;
+var VaultMarkdownPickerModal = class extends FuzzySuggestModalBase {
+  constructor(app, onChoose) {
+    super(app);
+    this.onChoose = onChoose;
+    this.setPlaceholder(t("\u8F93\u5165\u6A21\u677F\u7B14\u8BB0\u8DEF\u5F84\u6216\u6587\u4EF6\u540D\u2026"));
+  }
+  getItems() {
+    const files = this.app?.vault?.getMarkdownFiles?.() || [];
+    return [...files].sort((a, b) => a.path.localeCompare(b.path));
+  }
+  getItemText(file) {
+    return file.path;
+  }
+  onChooseItem(file) {
+    this.onChoose?.(file);
+  }
+};
+var JournalSetupModal = class extends Modal {
+  constructor(app, plugin, { day = "", targetPath = "", caller = "agent-deck", initialPolicy = null, onResolve = null } = {}) {
+    super(app);
+    this.plugin = plugin;
+    this.day = day;
+    this.targetPath = targetPath;
+    this.caller = caller;
+    this.onResolve = onResolve;
+    this._settled = false;
+    this._userPickedPlacement = false;
+    this._headings = [];
+    this._hasAiToken = false;
+    this._headingsReq = 0;
+    const basePolicy = initialPolicy || plugin?.getJournalPolicy?.() || {};
+    this.state = normalizeJournalPolicy(basePolicy, {
+      legacyAutoCreate: plugin?.settings?.journalAutoCreate !== false
+    });
+    if (this.state.configured && basePolicy?.aiPlacement) this._userPickedPlacement = true;
+  }
+  onOpen() {
+    this.modalEl?.addClass?.("ad-modal", "ad-jsetup");
+    this.render();
+    this.refreshTemplateHints();
+  }
+  onClose() {
+    this.contentEl.empty();
+    if (!this._settled) {
+      this._settled = true;
+      const shared = getSharedJournalPromptState(this.app);
+      if (this.day) shared.dismissedDay = this.day;
+      this.onResolve?.({ saved: false, dismissed: true });
+    }
+  }
+  settle(result) {
+    if (this._settled) return;
+    this._settled = true;
+    this.onResolve?.(result);
+    this.close();
+  }
+  async refreshTemplateHints({ autoSuggestPlaceholder = true } = {}) {
+    const req = ++this._headingsReq;
+    let raw = "";
+    if (this.state.templateSource === "custom") {
+      raw = this.state.templateText || "";
+    } else if (this.state.templateSource === "file" || this.state.templateSource === "obsidian") {
+      const path34 = this.state.templateSource === "file" ? this.state.templatePath : detectObsidianDailyTemplate(this.app);
+      const file = path34 ? resolveVaultTemplateFile(this.app, path34) : null;
+      if (file) {
+        try {
+          raw = await this.app.vault.read(file);
+        } catch {
+          raw = "";
+        }
+      }
+    }
+    if (req !== this._headingsReq) return;
+    this._headings = extractTemplateHeadings(raw);
+    this._hasAiToken = hasAiPlaceholder(raw);
+    if (autoSuggestPlaceholder && !this._userPickedPlacement && this.state.mode === "auto") {
+      if (this._hasAiToken) this.state.aiPlacement = "placeholder";
+      else if (this.state.aiPlacement === "placeholder") this.state.aiPlacement = "bottom";
+    }
+    this.renderPlacementOptions();
+  }
+  render() {
+    const el = this.contentEl;
+    el.empty();
+    const hasSpiral = !!this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const obsTpl = detectObsidianDailyTemplate(this.app);
+    const head = el.createDiv({ cls: "ad-modalhead" });
+    head.createDiv({ cls: "ad-modalhead__title", text: t("\u4ECA\u65E5\u65E5\u8BB0\u8FD8\u672A\u521B\u5EFA") });
+    head.createDiv({
+      cls: "ad-jsetup__why",
+      text: hasSpiral ? t("\u87BA\u65CB\u65E5\u7A0B\u7528\u4ECA\u65E5\u65E5\u8BB0\u89C4\u5212\u65F6\u95F4\u8F74\uFF0CAgent Deck \u7528\u5B83\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\uFF0C\u4E24\u6B3E\u63D2\u4EF6\u4F1A\u5171\u7528\u8FD9\u5957\u89C4\u5219\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002") : t("Agent Deck \u9700\u8981\u4ECA\u65E5\u65E5\u8BB0\u6765\u81EA\u52A8\u8BB0\u5F55 AI \u4F1A\u8BDD\u3001\u4EFB\u52A1\u8FDB\u5EA6\u4E0E\u7ED3\u8BBA\u3002\u8BBE\u597D\u4E00\u6B21\u540E\u540E\u7EED\u5C06\u81EA\u52A8\u6CBF\u7528\uFF0C\u4EE5\u540E\u968F\u65F6\u53EF\u5728\u8BBE\u7F6E\u91CC\u4FEE\u6539\u3002")
+    });
+    if (this.targetPath) {
+      head.createDiv({ cls: "ad-jsetup__path", text: t("\u4ECA\u65E5\u65E5\u8BB0\u8DEF\u5F84\uFF1A{path}", { path: this.targetPath }) });
+    }
+    const modeSec = el.createDiv({ cls: "ad-jsetup__sec" });
+    modeSec.createDiv({ cls: "ad-jsetup__label", text: t("1. \u4ECA\u5929\u6CA1\u6709\u65E5\u8BB0\u65F6\u600E\u4E48\u505A\uFF1F") });
+    const modeGrid = modeSec.createDiv({ cls: "ad-jsetup__choices" });
+    const addModeCard = (mode, title, desc) => {
+      const btn = modeGrid.createEl("button", {
+        cls: "ad-jsetup__choice" + (this.state.mode === mode ? " is-on" : ""),
+        attr: { type: "button", "aria-pressed": String(this.state.mode === mode) }
+      });
+      btn.createDiv({ cls: "ad-jsetup__choice-title", text: title });
+      btn.createDiv({ cls: "ad-jsetup__choice-desc", text: desc });
+      btn.onclick = () => {
+        if (this.state.mode === mode) return;
+        this.state.mode = mode;
+        this.render();
+        this.refreshTemplateHints();
+      };
+    };
+    addModeCard("auto", t("\u5E2E\u6211\u81EA\u52A8\u65B0\u5EFA"), t("\u6309\u4E0B\u65B9\u9009\u5B9A\u7684\u6A21\u677F\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0"));
+    addModeCard("manual", t("\u6211\u81EA\u5DF1\u624B\u52A8\u65B0\u5EFA"), t("\u4E0D\u62A2\u5148\u5EFA\u6587\u4EF6\uFF0C\u7B49\u4F60\u624B\u52A8\u6216\u7528 Templater \u5EFA\u597D\u540E\u518D\u81EA\u52A8\u5199\u5165"));
+    if (this.state.mode === "auto") {
+      const tplSec = el.createDiv({ cls: "ad-jsetup__sec" });
+      tplSec.createDiv({ cls: "ad-jsetup__label", text: t("2. \u65B0\u5EFA\u65E5\u8BB0\u65F6\u5957\u7528\u4EC0\u4E48\u6A21\u677F\uFF1F") });
+      const tabs = tplSec.createDiv({ cls: "ad-seg ad-jsetup__seg" });
+      const tplOpts = [
+        ["obsidian", obsTpl ? t("Obsidian \u6A21\u677F\uFF08{name}\uFF09", { name: obsTpl }) : t("Obsidian \u6A21\u677F\uFF08\u672A\u914D\u7F6E\uFF09")],
+        ["file", t("\u9009\u5E93\u5185\u6587\u4EF6")],
+        ["custom", t("\u624B\u52A8\u8F93\u5165\u6A21\u677F")],
+        ["none", t("\u7A7A\u767D\u65E5\u8BB0")]
+      ];
+      for (const [id, label] of tplOpts) {
+        const b = tabs.createEl("button", {
+          cls: "ad-seg__btn" + (this.state.templateSource === id ? " is-on" : ""),
+          text: label,
+          attr: { type: "button", "aria-pressed": String(this.state.templateSource === id) }
+        });
+        b.onclick = () => {
+          this.state.templateSource = id;
+          this.render();
+          this.refreshTemplateHints();
+        };
+      }
+      if (this.state.templateSource === "obsidian") {
+        tplSec.createDiv({
+          cls: "ad-jsetup__hint",
+          text: obsTpl ? t("\u5C06\u8BFB\u53D6\u6A21\u677F\u300C{path}\u300D\u5E76\u5C55\u5F00 {{date}}\u3001{{time}}\u3001{{title}}\u3002", { path: obsTpl }) : t("\u672A\u68C0\u6D4B\u5230 Obsidian \u6838\u5FC3\u300C\u65E5\u8BB0\u300D\u6216 Periodic Notes \u6A21\u677F\uFF0C\u5C06\u6309\u9ED8\u8BA4\u683C\u5F0F\u65B0\u5EFA\u3002")
+        });
+      } else if (this.state.templateSource === "file") {
+        const row = tplSec.createDiv({ cls: "ad-jsetup__filerow" });
+        const input = row.createEl("input", {
+          cls: "ad-input",
+          type: "text",
+          value: this.state.templatePath,
+          attr: { placeholder: t("\u8F93\u5165\u5E93\u5185\u6A21\u677F\u8DEF\u5F84\uFF0C\u5982\uFF1ATemplates/Daily.md") }
+        });
+        input.oninput = () => {
+          this.state.templatePath = input.value.trim();
+          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+        };
+        const pickBtn = row.createEl("button", { cls: "ad-btn", text: t("\u9009\u62E9\u6587\u4EF6"), attr: { type: "button" } });
+        pickBtn.onclick = () => {
+          new VaultMarkdownPickerModal(this.app, (file) => {
+            this.state.templatePath = file.path;
+            this.render();
+            this.refreshTemplateHints();
+          }).open();
+        };
+      } else if (this.state.templateSource === "custom") {
+        const placeholderText = t("\u4F8B\u5982\uFF1A\u7528 YAML \u5C5E\u6027\u5934\u3001## \u4ECA\u65E5\u8BA1\u5212 \u4E0E {{ai}} \u5360\u4F4D\u6807\u8BB0\u81EA\u5B9A\u4E49\u6A21\u677F");
+        const ta = tplSec.createEl("textarea", {
+          cls: "ad-textarea ad-jsetup__textarea",
+          attr: {
+            rows: "5",
+            placeholder: placeholderText
+          }
+        });
+        ta.value = this.state.templateText || "";
+        ta.oninput = () => {
+          this.state.templateText = ta.value;
+          this.refreshTemplateHints({ autoSuggestPlaceholder: false });
+        };
+        tplSec.createDiv({
+          cls: "ad-jsetup__hint",
+          text: t("\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\uFF0C\u5199\u4E00\u884C {{ai}} \u53EF\u7CBE\u786E\u6307\u5B9A AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E\u3002")
+        });
+      }
+    }
+    this._placeSec = el.createDiv({
+      cls: "ad-jsetup__sec" + (this.state.mode === "manual" ? " ad-jsetup__sec--quiet" : "")
+    });
+    this.renderPlacementOptions();
+    const foot = el.createDiv({ cls: "ad-modalfoot" });
+    const laterBtn = foot.createEl("button", { cls: "ad-btn", text: t("\u4ECA\u5929\u5148\u4E0D\u5EFA"), attr: { type: "button" } });
+    laterBtn.onclick = () => {
+      const shared = getSharedJournalPromptState(this.app);
+      if (this.day) shared.dismissedDay = this.day;
+      this.settle({ saved: false, dismissed: true });
+    };
+    const okBtn = foot.createEl("button", {
+      cls: "ad-btn ad-btn--primary",
+      text: this.state.mode === "auto" ? t("\u4FDD\u5B58\u5E76\u65B0\u5EFA\u4ECA\u65E5\u65E5\u8BB0") : t("\u8BB0\u4F4F\u8BBE\u5B9A"),
+      attr: { type: "button" }
+    });
+    okBtn.onclick = async () => {
+      if (this.state.mode === "auto" && this.state.templateSource === "file" && !this.state.templatePath.trim()) {
+        this.state.templateSource = "none";
+      }
+      const shared = getSharedJournalPromptState(this.app);
+      shared.dismissedDay = "";
+      const savedPolicy = await this.plugin?.updateJournalPolicy?.({
+        ...this.state,
+        configured: true
+      });
+      this.settle({ saved: true, policy: savedPolicy || { ...this.state, configured: true } });
+    };
+  }
+  renderPlacementOptions() {
+    const sec = this._placeSec;
+    if (!sec) return;
+    sec.empty();
+    const stepNum = this.state.mode === "auto" ? "3" : "2";
+    sec.createDiv({
+      cls: "ad-jsetup__label",
+      text: this.state.mode === "auto" ? t("{n}. AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u653E\u5230\u6A21\u677F\u7684\u54EA\u91CC\uFF1F", { n: stepNum }) : t("{n}. \u7B49\u4F60\u5EFA\u597D\u65E5\u8BB0\u540E\uFF0CAI \u81EA\u52A8\u8BB0\u5F55\u9ED8\u8BA4\u653E\u54EA\u91CC\uFF1F", { n: stepNum })
+    });
+    const seg = sec.createDiv({ cls: "ad-seg ad-jsetup__seg" });
+    const opts = [
+      ["bottom", t("\u65E5\u8BB0\u672B\u5C3E")],
+      ["top", t("\u65E5\u8BB0\u5F00\u5934")],
+      ["after-heading", t("\u6307\u5B9A\u6807\u9898\u4E0B")],
+      ["placeholder", this._hasAiToken ? t("\u6A21\u677F {{ai}} \u5904\uFF08\u5DF2\u68C0\u6D4B\u5230\uFF09") : t("\u6A21\u677F {{ai}} \u5904")]
+    ];
+    for (const [id, label] of opts) {
+      const b = seg.createEl("button", {
+        cls: "ad-seg__btn" + (this.state.aiPlacement === id ? " is-on" : ""),
+        text: label,
+        attr: { type: "button", "aria-pressed": String(this.state.aiPlacement === id) }
+      });
+      b.onclick = () => {
+        this._userPickedPlacement = true;
+        this.state.aiPlacement = id;
+        this.renderPlacementOptions();
+      };
+    }
+    if (this.state.aiPlacement === "top") {
+      sec.createDiv({ cls: "ad-jsetup__hint", text: t("\u4F1A\u81EA\u52A8\u907F\u5F00 YAML \u5C5E\u6027\u5934\uFF08frontmatter\uFF09\uFF0C\u63D2\u5728\u6B63\u6587\u6700\u4E0A\u65B9\u3002") });
+    } else if (this.state.aiPlacement === "placeholder") {
+      sec.createDiv({
+        cls: "ad-jsetup__hint",
+        text: this._hasAiToken ? t("\u5DF2\u8BC6\u522B\u6A21\u677F\u4E2D\u7684 {{ai}} \u6807\u8BB0\uFF0C\u9996\u6B21\u5199\u5165 AI \u8BB0\u5F55\u65F6\u4F1A\u539F\u4F4D\u66FF\u6362\u5B83\u3002") : t("\u5728\u6A21\u677F\u4EFB\u610F\u4F4D\u7F6E\u5199\u4E00\u884C {{ai}} \u5373\u53EF\u7CBE\u786E\u5360\u4F4D\uFF1B\u672A\u5199\u8BE5\u6807\u8BB0\u65F6\u5C06\u843D\u5728\u65E5\u8BB0\u672B\u5C3E\u3002")
+      });
+    } else if (this.state.aiPlacement === "after-heading") {
+      const box = sec.createDiv({ cls: "ad-jsetup__headingbox" });
+      if (this._headings.length) {
+        const sel = box.createEl("select", { cls: "ad-select" });
+        const matched = this._headings.find((h) => h.raw === this.state.aiAnchorHeading || h.text === this.state.aiAnchorHeading);
+        if (!this.state.aiAnchorHeading && this._headings[0]) this.state.aiAnchorHeading = this._headings[0].raw;
+        for (const h of this._headings) {
+          const opt = sel.createEl("option", { value: h.raw, text: h.raw });
+          if (h.raw === this.state.aiAnchorHeading || !matched && h === this._headings[0]) opt.selected = true;
+        }
+        const customOpt = sel.createEl("option", { value: "__custom__", text: t("\u624B\u52A8\u8F93\u5165\u5176\u4ED6\u6807\u9898\u2026") });
+        const useCustom = Boolean(this.state.aiAnchorHeading && !this._headings.some((h) => h.raw === this.state.aiAnchorHeading || h.text === this.state.aiAnchorHeading));
+        if (useCustom) customOpt.selected = true;
+        let customInput = null;
+        const syncCustomInput = (show) => {
+          if (show && !customInput) {
+            customInput = box.createEl("input", {
+              cls: "ad-input",
+              type: "text",
+              value: this.state.aiAnchorHeading || "",
+              attr: { placeholder: t("\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C") }
+            });
+            customInput.oninput = () => {
+              this.state.aiAnchorHeading = customInput.value.trim();
+            };
+          } else if (!show && customInput) {
+            customInput.remove();
+            customInput = null;
+          }
+        };
+        if (useCustom) syncCustomInput(true);
+        sel.onchange = () => {
+          if (sel.value === "__custom__") {
+            syncCustomInput(true);
+          } else {
+            this.state.aiAnchorHeading = sel.value;
+            syncCustomInput(false);
+          }
+        };
+      } else {
+        const input = box.createEl("input", {
+          cls: "ad-input",
+          type: "text",
+          value: this.state.aiAnchorHeading || "",
+          attr: { placeholder: t("\u8F93\u5165\u76EE\u6807\u6807\u9898\uFF0C\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C") }
+        });
+        input.oninput = () => {
+          this.state.aiAnchorHeading = input.value.trim();
+        };
+      }
+      sec.createDiv({ cls: "ad-jsetup__hint", text: t("\u5F53\u5929\u65E5\u8BB0\u91CC\u82E5\u627E\u4E0D\u5230\u8BE5\u6807\u9898\uFF0C\u5C06\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E\u3002") });
+    }
+  }
+};
+async function openSharedJournalSetupModal(plugin, { day = "", targetPath = "", caller = "agent-deck", manualTrigger = false } = {}) {
+  const app = plugin?.app;
+  if (!app) return { saved: false, dismissed: false };
+  const shared = getSharedJournalPromptState(app);
+  if (shared.modalPromise) return shared.modalPromise;
+  if (!manualTrigger && day && shared.dismissedDay === day) {
+    return { saved: false, dismissed: true };
+  }
+  const initialPolicy = plugin.getJournalPolicy?.();
+  shared.modalPromise = new Promise((resolve) => {
+    const modal = new JournalSetupModal(app, plugin, {
+      day,
+      targetPath,
+      caller,
+      initialPolicy,
+      onResolve: resolve
+    });
+    modal.open();
+  }).finally(() => {
+    shared.modalPromise = null;
+  });
+  return shared.modalPromise;
 }
 
 // src/journal-organizer.js
@@ -10577,7 +11256,7 @@ function workspaceLabel(cwd) {
 var import_path26 = __toESM(require("path"), 1);
 var import_os25 = __toESM(require("os"), 1);
 var import_child_process13 = require("child_process");
-var obsidianNs2 = __toESM(require("obsidian"), 1);
+var obsidianNs3 = __toESM(require("obsidian"), 1);
 var import_obsidian22 = require("obsidian");
 
 // src/readers.js
@@ -40243,7 +40922,7 @@ var DashboardView = class extends import_obsidian6.ItemView {
 };
 
 // src/settings.js
-var obsidianNs = __toESM(require("obsidian"), 1);
+var obsidianNs2 = __toESM(require("obsidian"), 1);
 var import_obsidian7 = require("obsidian");
 
 // src/dream-entries.js
@@ -43343,6 +44022,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
   hide() {
     this._timers?.dispose();
     this._dreamTimer = null;
+    this._tocCleanup?.();
+    this._tocCleanup = null;
     this._aboutComp?.unload?.();
     this._aboutComp = null;
   }
@@ -43418,7 +44099,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     }
     containerEl.empty();
     containerEl.addClass("ad-settings");
-    const nav = containerEl.createDiv({ cls: "ad-set-nav" });
+    const sticky = containerEl.createDiv({ cls: "ad-set-sticky" });
+    const nav = sticky.createDiv({ cls: "ad-set-nav" });
     const dirty = this.isDraftDirty();
     for (const [id, label, icon] of TABS) {
       const isDirtyTab = id === "delegate" && dirty;
@@ -43429,10 +44111,17 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       b.createSpan({ text });
       b.onclick = () => {
         this.tab = id;
+        containerEl.scrollTop = 0;
         this.display();
       };
     }
+    const tocHost = sticky.createDiv({
+      cls: "ad-set-toc",
+      attr: { role: "navigation", "aria-label": t("\u672C\u9875\u76EE\u5F55") }
+    });
     const body = containerEl.createDiv({ cls: "ad-set-body" });
+    this._tocItems = [];
+    this._tabBody = body;
     if (this.tab === "delegate") {
       this.renderDelegate(body);
       this.renderDraftBar(body);
@@ -43445,6 +44134,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     } else {
       this.renderAbout(body);
     }
+    this.renderTabToc(tocHost, sticky, containerEl);
+    this._tabBody = null;
     if (this._scrollToModels) {
       const targetSel = typeof this._scrollToModels === "string" ? `.ad-modelgroup[data-agent="${this._scrollToModels}"]` : ".ad-models-card";
       const mc = containerEl.querySelector?.(targetSel) || containerEl.querySelector?.(".ad-models-card");
@@ -43466,8 +44157,86 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     }
   }
   // ---------- shared bits ----------
-  card(parent, title, sub, renderRight = null) {
+  registerToc(el, label) {
+    if (!this._tocItems || !el || !label) return;
+    this._tocItems.push({ el, label: String(label).trim() });
+  }
+  renderTabToc(tocHost, sticky, scrollRoot) {
+    this._tocCleanup?.();
+    this._tocCleanup = null;
+    const items = (this._tocItems || []).filter((it) => it && it.el && it.label);
+    if (!items.length) {
+      tocHost.hidden = true;
+      return;
+    }
+    tocHost.hidden = false;
+    tocHost.createSpan({ cls: "ad-set-toc__label", text: t("\u672C\u9875\u76EE\u5F55") });
+    const btns = [];
+    const setActive = (idx) => {
+      btns.forEach((b, i) => {
+        const on = i === idx;
+        b.classList?.toggle?.("is-on", on);
+        b.setAttribute?.("aria-current", on ? "true" : "false");
+      });
+    };
+    const headerOffset = () => (sticky?.getBoundingClientRect?.().height || 88) + 12;
+    let lockUntil = 0;
+    let lockedIdx = -1;
+    items.forEach((item, idx) => {
+      const btn = tocHost.createEl("button", {
+        cls: "ad-set-toc__item" + (idx === 0 ? " is-on" : ""),
+        text: item.label,
+        attr: { type: "button", "aria-current": idx === 0 ? "true" : "false" }
+      });
+      btn.onclick = () => {
+        const target = item.el;
+        if (target.tagName === "DETAILS" || typeof target.open === "boolean") target.open = true;
+        const offset = headerOffset();
+        if (target.style) target.style.scrollMarginTop = `${Math.ceil(offset)}px`;
+        lockedIdx = idx;
+        lockUntil = Date.now() + 800;
+        setActive(idx);
+        const canCustomScroll = scrollRoot && typeof scrollRoot.scrollTo === "function" && typeof target.getBoundingClientRect === "function" && typeof scrollRoot.getBoundingClientRect === "function" && scrollRoot.scrollHeight > scrollRoot.clientHeight;
+        if (canCustomScroll) {
+          const top = idx === 0 ? 0 : Math.max(0, scrollRoot.scrollTop + (target.getBoundingClientRect().top - scrollRoot.getBoundingClientRect().top) - offset);
+          const behavior = Math.abs(top - scrollRoot.scrollTop) > 1200 ? "auto" : "smooth";
+          scrollRoot.scrollTo({ top, behavior });
+        } else {
+          target.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        }
+        target.classList?.add?.("is-toc-flash");
+        this._timers?.setTimeout?.(() => target.classList?.remove?.("is-toc-flash"), 900);
+      };
+      btns.push(btn);
+    });
+    if (scrollRoot && typeof scrollRoot.addEventListener === "function") {
+      const onScroll = () => {
+        if (Date.now() < lockUntil && lockedIdx >= 0) {
+          setActive(lockedIdx);
+          return;
+        }
+        const atBottom = scrollRoot.scrollHeight > scrollRoot.clientHeight && scrollRoot.scrollTop + scrollRoot.clientHeight >= scrollRoot.scrollHeight - 4;
+        if (atBottom && items.length) {
+          setActive(items.length - 1);
+          return;
+        }
+        const threshold = (sticky?.getBoundingClientRect?.().bottom || scrollRoot.getBoundingClientRect?.().top || 0) + 28;
+        let activeIdx = 0;
+        for (let i = 0; i < items.length; i++) {
+          const rect = items[i].el.getBoundingClientRect?.();
+          if (rect && rect.top <= threshold) activeIdx = i;
+        }
+        setActive(activeIdx);
+      };
+      scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+      this._tocCleanup = () => scrollRoot.removeEventListener("scroll", onScroll);
+    }
+  }
+  card(parent, title, sub, renderRight = null, opts = null) {
     const c = parent.createDiv({ cls: "ad-card" });
+    if (parent === this._tabBody && title && opts?.toc !== false) {
+      this.registerToc(c, opts?.tocLabel || title);
+    }
     if (title) {
       const h = c.createDiv({ cls: "ad-card__head" + (renderRight ? " ad-card__head--bar" : "") });
       const textWrap = renderRight ? h.createDiv({ cls: "ad-card__head-text" }) : h;
@@ -45088,10 +45857,111 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    this.rowToggle(jr, t("\u81EA\u52A8\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0"), t("\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u6309\u6A21\u677F\u81EA\u52A8\u65B0\u5EFA\uFF1B\u5173\u95ED\u540E\u53EA\u5199\u5165\u5DF2\u5B58\u5728\u7684\u65E5\u8BB0\uFF0C\u907F\u514D\u62A2\u5728\u81EA\u5B9A\u4E49\u6A21\u677F\u6216 Templater \u4E4B\u524D\u5EFA\u7A7A\u6587\u4EF6"), s.journalAutoCreate !== false, (v) => {
-      s.journalAutoCreate = v;
-      p.saveSettings();
-    });
+    const policy = typeof p.getJournalPolicy === "function" ? p.getJournalPolicy() : s.journalPolicy || {};
+    const hasSpiral = !!this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const obsTpl = detectObsidianDailyTemplate(this.app);
+    this.row(
+      jr,
+      t("\u4ECA\u65E5\u65E5\u8BB0\u521B\u5EFA\u65B9\u5F0F"),
+      hasSpiral ? t("\u4E0E\u87BA\u65CB\u65E5\u7A0B\u5171\u7528\u540C\u4E00\u5957\u8BBE\u5B9A\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4E24\u6B3E\u63D2\u4EF6\u90FD\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u8BFB\u5199") : t("\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u7684\u5904\u7406\u65B9\u5F0F\uFF1B\u9009\u300C\u624B\u52A8\u65B0\u5EFA\u300D\u65F6\u4F1A\u7B49\u4F60\u5EFA\u597D\u540E\u518D\u5199\u5165"),
+      (rr) => {
+        const box = rr.createDiv({ cls: "ad-jpolicy-inline" });
+        this.segmented(
+          box,
+          [{ id: "auto", label: t("\u81EA\u52A8\u65B0\u5EFA") }, { id: "manual", label: t("\u624B\u52A8\u65B0\u5EFA") }],
+          policy.mode === "manual" ? "manual" : "auto",
+          (v) => {
+            if (typeof p.updateJournalPolicy === "function") {
+              p.updateJournalPolicy({ mode: v, configured: true }).then(() => this.display());
+            } else {
+              s.journalAutoCreate = v === "auto";
+              p.saveSettings();
+              this.display();
+            }
+          }
+        );
+        if (typeof p.promptJournalPolicyIfNeeded === "function") {
+          const wizardBtn = box.createEl("button", { cls: "ad-linkbtn", text: t("\u6253\u5F00\u5F15\u5BFC\u5F39\u7A97"), attr: { type: "button" } });
+          wizardBtn.onclick = () => p.promptJournalPolicyIfNeeded({ manualTrigger: true }).then(() => this.display());
+        }
+      }
+    );
+    if (policy.mode !== "manual") {
+      this.rowSelect(
+        jr,
+        t("\u65B0\u5EFA\u65E5\u8BB0\u6A21\u677F"),
+        t("\u6307\u5B9A\u8981\u5957\u7528\u7684\u6A21\u677F\u5185\u5BB9\uFF1B\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}} \u548C {{ai}}"),
+        [
+          { id: "obsidian", label: obsTpl ? t("\u8DDF\u968F Obsidian \u6A21\u677F\uFF08{name}\uFF09", { name: obsTpl }) : t("\u8DDF\u968F Obsidian \u6A21\u677F\uFF08\u5F53\u524D\u672A\u914D\u7F6E\uFF09") },
+          { id: "file", label: t("\u6307\u5B9A\u5E93\u5185\u6587\u4EF6") },
+          { id: "custom", label: t("\u624B\u52A8\u8F93\u5165\u6A21\u677F") },
+          { id: "none", label: t("\u7A7A\u767D\u65E5\u8BB0") }
+        ],
+        policy.templateSource || "obsidian",
+        (v) => {
+          p.updateJournalPolicy?.({ templateSource: v, configured: true }).then(() => this.display());
+        }
+      );
+      if (policy.templateSource === "file") {
+        this.row(jr, t("\u6A21\u677F\u6587\u4EF6\u8DEF\u5F84"), t("\u9009\u62E9\u5E93\u5185 Markdown \u6587\u4EF6\u4F5C\u4E3A\u65B0\u5EFA\u65E5\u8BB0\u7684\u6A21\u677F"), (rr) => {
+          const row = rr.createDiv({ cls: "ad-jpolicy-filerow" });
+          const inp = row.createEl("input", {
+            cls: "ad-input",
+            type: "text",
+            value: policy.templatePath || "",
+            attr: { placeholder: t("\u8F93\u5165\u5E93\u5185\u6A21\u677F\u8DEF\u5F84\uFF0C\u5982\uFF1ATemplates/Daily.md") }
+          });
+          inp.onchange = () => {
+            p.updateJournalPolicy?.({ templatePath: inp.value.trim(), configured: true });
+          };
+          const pick = row.createEl("button", { cls: "ad-btn", text: t("\u9009\u62E9\u6587\u4EF6"), attr: { type: "button" } });
+          pick.onclick = () => {
+            new VaultMarkdownPickerModal(this.app, (file) => {
+              p.updateJournalPolicy?.({ templatePath: file.path, configured: true }).then(() => this.display());
+            }).open();
+          };
+        });
+      } else if (policy.templateSource === "custom") {
+        this.row(jr, t("\u6A21\u677F\u5185\u5BB9"), t("\u8F93\u5165\u6A21\u677F\u6B63\u6587\uFF08\u652F\u6301 {{title}}\u3001{{date}}\u3001{{date:YYYY-MM-DD}}\u3001{{time}}\u3001{{ai}}\uFF09"), (rr) => {
+          const placeholderText = t("\u4F8B\u5982\uFF1A\u7528 YAML \u5C5E\u6027\u5934\u3001## \u4ECA\u65E5\u8BA1\u5212 \u4E0E {{ai}} \u5360\u4F4D\u6807\u8BB0\u81EA\u5B9A\u4E49\u6A21\u677F");
+          const ta = rr.createEl("textarea", {
+            cls: "ad-textarea ad-jpolicy-textarea",
+            attr: { rows: "4", placeholder: placeholderText }
+          });
+          ta.value = policy.templateText || "";
+          ta.onchange = () => {
+            p.updateJournalPolicy?.({ templateText: ta.value, configured: true });
+          };
+        });
+      }
+    }
+    this.rowSelect(
+      jr,
+      t("AI \u81EA\u52A8\u8BB0\u5F55\u533A\u57DF\u4F4D\u7F6E"),
+      t("\u51B3\u5B9A\u9996\u6B21\u81EA\u52A8\u5199\u5165\u6216\u6574\u7406\u65F6\uFF0CAI \u533A\u5757\u63D2\u5728\u65E5\u8BB0\u7684\u54EA\u4E2A\u4F4D\u7F6E"),
+      [
+        { id: "bottom", label: t("\u65E5\u8BB0\u672B\u5C3E\uFF08\u9ED8\u8BA4\uFF09") },
+        { id: "top", label: t("\u65E5\u8BB0\u5F00\u5934\uFF08\u5C5E\u6027\u5934\u4E0B\u65B9\uFF09") },
+        { id: "after-heading", label: t("\u6307\u5B9A\u6807\u9898\u4E0B\u65B9") },
+        { id: "placeholder", label: t("\u6A21\u677F\u91CC\u7684 {{ai}} \u4F4D\u7F6E") }
+      ],
+      policy.aiPlacement || "bottom",
+      (v) => {
+        p.updateJournalPolicy?.({ aiPlacement: v, configured: true }).then(() => this.display());
+      }
+    );
+    if (policy.aiPlacement === "after-heading") {
+      this.rowText(
+        jr,
+        t("\u76EE\u6807\u6807\u9898\u540D\u79F0"),
+        t("\u8F93\u5165\u6A21\u677F\u4E2D\u7684\u6807\u9898\uFF08\u5982 ## AI \u8BB0\u5F55\uFF09\uFF0C\u627E\u4E0D\u5230\u65F6\u81EA\u52A8\u843D\u5230\u65E5\u8BB0\u672B\u5C3E"),
+        policy.aiAnchorHeading || "",
+        t("\u5982\uFF1A## AI \u8BB0\u5F55 \u6216 \u4ECA\u65E5\u5DE5\u4F5C"),
+        (v) => {
+          p.updateJournalPolicy?.({ aiAnchorHeading: v.trim(), configured: true });
+        }
+      );
+    }
     this.rowToggle(jr, t("\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55"), t("\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0"), s.autoLog === true, (v) => {
       s.autoLog = v;
       p.saveSettings();
@@ -46088,7 +46958,14 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     mcpCfg.allowWrite = Boolean(mcpCfg.allowWrite);
     mcpCfg.excludeAiLogs = mcpCfg.excludeAiLogs !== false;
     if (typeof mcpCfg.agentPrompt !== "string") mcpCfg.agentPrompt = "";
-    const mcpCard = this.card(body, t("\u5916\u90E8 Agent \u63A5\u5165\uFF08MCP / CLI\uFF09"), t("\u8BA9 Claude Code\u3001Codex\u3001Antigravity\u3001OpenCode\u3001DeepSeek Harness\u3001Cursor \u7B49\u5728\u5E93\u5916\u76F4\u63A5\u68C0\u7D22\u5168\u5E93\u7B14\u8BB0\uFF08FTS5\uFF09\u4E0E Dream \u8BB0\u5FC6"));
+    const mcpCard = this.card(
+      body,
+      t("\u5916\u90E8 Agent \u63A5\u5165\uFF08MCP / CLI\uFF09"),
+      t("\u8BA9 Claude Code\u3001Codex\u3001Antigravity\u3001OpenCode\u3001DeepSeek Harness\u3001Cursor \u7B49\u5728\u5E93\u5916\u76F4\u63A5\u68C0\u7D22\u5168\u5E93\u7B14\u8BB0\uFF08FTS5\uFF09\u4E0E Dream \u8BB0\u5FC6"),
+      null,
+      { toc: false }
+    );
+    this.registerToc(mcpCard, t("\u5DE5\u5177\u4E0E\u9694\u79BB"));
     const mcpPaths = p.resolveMcpPaths?.() || {};
     const cfgDir = p.app?.vault?.configDir || "";
     const core = p.contextCore;
@@ -46197,6 +47074,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         }, 0);
       }, "ad-btn--compact");
     });
+    this.registerToc(idxRow, t("\u672C\u5730\u5168\u6587\u7D22\u5F15"));
     const idxTextEl = idxRow.querySelector(".ad-row__desc");
     renderIndexStats = () => {
       if (!idxTextEl) return;
@@ -46219,6 +47097,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     };
     renderIndexStats();
     const promptField = mcpCard.createDiv({ cls: "ad-field ad-mcp-prompt" });
+    this.registerToc(promptField, t("\u5916\u90E8 Agent \u63D0\u793A\u8BCD"));
     promptField.createDiv({ cls: "ad-field__label", text: t("\u5916\u90E8 Agent \u81EA\u52A8\u89E6\u53D1\u63D0\u793A\u8BCD\uFF08\u53EF\u7F16\u8F91\u540E\u590D\u5236\uFF09") });
     promptField.createDiv({ cls: "ad-field__desc", text: t("\u7C98\u8D34\u5230 ~/.claude/CLAUDE.md\u3001~/.codex/AGENTS.md \u6216 Cursor / Antigravity \u5168\u5C40\u89C4\u5219\uFF0C\u8BA9 Agent \u4E3B\u52A8\u67E5\u8BB0\u5FC6") });
     promptTa = promptField.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3" } });
@@ -46254,6 +47133,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     if (p.vaultPath && core?.listMcpClients && core?.installMcpClient && core?.uninstallMcpClient) {
       const mcpScript = mcpPaths.mcpScript || "";
       const clientsWrap = mcpCard.createDiv({ cls: "ad-mcp-clients" });
+      this.registerToc(clientsWrap, t("\u672C\u673A\u5BA2\u6237\u7AEF\u63A5\u5165"));
       const headRow = clientsWrap.createDiv({ cls: "ad-mcp-clients__head" });
       headRow.createSpan({ cls: "ad-mcp-clients__title", text: t("\u672C\u673A\u5BA2\u6237\u7AEF\u4E00\u952E\u63A5\u5165") });
       const headBtns = headRow.createDiv({ cls: "ad-btnrow ad-mcp-clients__tools" });
@@ -46332,6 +47212,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     this.bigButton(mcpBtns, t("\u590D\u5236 Claude Code \u547D\u4EE4"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }), "ad-btn--compact");
     this.bigButton(mcpBtns, t("\u590D\u5236 CLI \u67E5\u8BE2\u793A\u4F8B"), () => p.copyMcpConfig?.("cli"), "ad-btn--compact");
     mcpCard.appendChild(mcpMore.parentElement);
+    this.registerToc(mcpMore.parentElement, t("\u624B\u52A8\u590D\u5236\u914D\u7F6E"));
   }
   renderExperimental(body) {
     this.renderMemoryMcpCard(body);
@@ -46433,8 +47314,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
   }
   renderAboutDiagram(el) {
     const md = aboutArchitectureMermaid(currentLanguage());
-    const Comp = obsidianNs.Component;
-    const Renderer = obsidianNs.MarkdownRenderer;
+    const Comp = obsidianNs2.Component;
+    const Renderer = obsidianNs2.MarkdownRenderer;
     if (Renderer?.render && Comp) {
       this._aboutComp?.unload?.();
       this._aboutComp = new Comp();
@@ -51307,13 +52188,6 @@ var BLOCKED_KW = {
   limit: "HITLIMIT",
   queued: "QUEUED"
 };
-function expandJournalTemplate(text, { title = "", now = /* @__PURE__ */ new Date(), dateFormat = "YYYY-MM-DD", timeFormat = "HH:mm" } = {}) {
-  return String(text).replace(/\{\{\s*(date|time|title)\s*(?::([^{}]*))?\s*\}\}/g, (_, name, fmt) => {
-    if (name === "title") return title;
-    const format = String(fmt || "").trim() || (name === "date" ? dateFormat : timeFormat);
-    return formatDate(now, format);
-  });
-}
 var AutoLog = class {
   constructor(plugin) {
     this.p = plugin;
@@ -51376,7 +52250,7 @@ var AutoLog = class {
     const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));
     return f && f.extension === "md" ? f : null;
   }
-  // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
+  // 今天的日记还没建：按共享日记创建策略（默认/指定文件/自定义模板）建一篇，AI 分区骨架照旧交给 placeBlock
   async createJournal(day) {
     const path34 = this.journalPath(day);
     if (typeof this.p.ensureNoteFile !== "function") return null;
@@ -51384,27 +52258,8 @@ var AutoLog = class {
     return file || null;
   }
   async journalTemplate(path34) {
-    const app = this.p.app;
-    const periodic = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
-    const tplPath = String(
-      dailyNotesOptions(app)?.template || (periodic?.enabled ? periodic.template : "") || ""
-    ).trim();
-    if (!tplPath) return "";
-    const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
-    if (!file || typeof file.extension !== "string") return "";
-    let text = "";
-    try {
-      text = await app.vault.read(file);
-    } catch {
-      return "";
-    }
-    let format = {};
-    try {
-      format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
-    } catch {
-    }
-    const title = path34.slice(path34.lastIndexOf("/") + 1).replace(/\.md$/, "");
-    return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
+    const policy = typeof this.p.getJournalPolicy === "function" ? this.p.getJournalPolicy() : normalizeJournalPolicy(this.cfg.journalPolicy, { legacyAutoCreate: this.cfg.journalAutoCreate !== false });
+    return resolveJournalInitialContent(this.p.app, policy, { path: path34, now: /* @__PURE__ */ new Date() });
   }
   viewFor(file) {
     let view = null;
@@ -51436,12 +52291,17 @@ var AutoLog = class {
     });
     return ok;
   }
-  // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
+  // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才按用户选择的插入位置建区
   placeBlock(text, blockLines) {
     const block = blockLines.join("\n");
     let custom = readJournalLayout(text);
     if (!custom) {
-      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg), showTimeRange: this.rules().showTimeRange }));
+      const placementPolicy = typeof this.p.getJournalPolicy === "function" ? this.p.getJournalPolicy() : this.cfg.journalPolicy;
+      text = renderJournal(planJournal(text, {
+        layout: configuredJournalLayout(this.cfg),
+        showTimeRange: this.rules().showTimeRange,
+        placementPolicy
+      }));
       custom = readJournalLayout(text);
       if (!custom) throw new Error(t("\u8BF7\u5148\u5173\u95ED\u7B14\u8BB0\u4E2D\u7684\u4EE3\u7801\u5757\uFF0C\u518D\u5EFA\u7ACB\u65E5\u5FD7\u5206\u533A"));
     }
@@ -51719,11 +52579,37 @@ var AutoLog = class {
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const autoCreate = this.cfg.journalAutoCreate !== false;
-      const file = this.journalFile(day) || (autoCreate ? await this.createJournal(day) : null);
+      let file = this.journalFile(day);
       if (!file) {
-        if (manual || autoCreate) report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
-        return report;
+        if (typeof this.p.getJournalPolicy === "function") {
+          let policy = this.p.getJournalPolicy();
+          if (!policy.configured && typeof this.p.promptJournalPolicyIfNeeded === "function") {
+            const res2 = await this.p.promptJournalPolicyIfNeeded({
+              day,
+              targetPath: this.journalPath(day),
+              caller: "agent-deck",
+              manualTrigger: manual
+            });
+            file = this.journalFile(day);
+            policy = res2?.policy || this.p.getJournalPolicy();
+          }
+          if (!file && policy.configured && policy.mode === "auto") {
+            file = await this.createJournal(day);
+          }
+          if (!file) {
+            if (manual || policy.configured && policy.mode === "auto") {
+              report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
+            }
+            return report;
+          }
+        } else {
+          const autoCreate = this.cfg.journalAutoCreate !== false;
+          file = autoCreate ? await this.createJournal(day) : null;
+          if (!file) {
+            if (manual || autoCreate) report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
+            return report;
+          }
+        }
       }
       const arch = this.archived();
       const todayList = [], crossByOrigin = /* @__PURE__ */ new Map();
@@ -58999,7 +59885,14 @@ var AgentDeckPlugin = class extends import_obsidian22.Plugin {
     });
     this.journalSync = new JournalSync(this);
     this.journalOrganizer = new JournalOrganizer(this);
-    if (this.app.workspace.on) this.registerEvent(this.app.workspace.on("nautilus-spiral:day-cutoff-changed", () => this.scanNow(false)));
+    if (this.app.workspace.on) {
+      this.registerEvent(this.app.workspace.on("nautilus-spiral:day-cutoff-changed", () => this.scanNow(false)));
+      this.registerEvent(this.app.workspace.on("shared:journal-policy-changed", (payload) => {
+        if (payload && payload.from !== "agent-deck" && payload.policy) {
+          this.applySharedJournalPolicy(payload.policy, { from: payload.from });
+        }
+      }));
+    }
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
     this.registerView(MEMORY_GRAPH_TYPE, (leaf) => new MemoryGraphView(leaf, this));
@@ -59329,6 +60222,7 @@ var AgentDeckPlugin = class extends import_obsidian22.Plugin {
         }), 3500);
       }
       this.defer(() => this.recoverJobs(), 4e3);
+      this.getJournalPolicy();
       this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
       this.defer(() => this.checkForUpdates({ manual: false }).catch(() => {
       }), 12e3);
@@ -62358,7 +63252,14 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter((m) => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings), showTimeRange: resolveRecordRules(this.settings).showTimeRange });
+    return planJournal(base, {
+      tracked,
+      archived: this.autoLog.archived(),
+      turns,
+      layout: configuredJournalLayout(this.settings),
+      showTimeRange: resolveRecordRules(this.settings).showTimeRange,
+      placementPolicy: this.getJournalPolicy()
+    });
   }
   async writeJournal(file, base, next) {
     const view = this.viewForPath(file.path);
@@ -64134,6 +65035,76 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       await this.saveSettings();
     }
   }
+  getOwnJournalPolicy() {
+    return normalizeJournalPolicy(this.settings.journalPolicy, {
+      legacyAutoCreate: this.settings.journalAutoCreate !== false
+    });
+  }
+  getJournalPolicy() {
+    const own = this.getOwnJournalPolicy();
+    const spiral = this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const peerRaw = typeof spiral?.getOwnJournalPolicy === "function" ? spiral.getOwnJournalPolicy() : null;
+    if (!peerRaw) return own;
+    const peer = normalizeJournalPolicy(peerRaw);
+    const peerWins = peer.configured && !own.configured || peer.updatedAt > own.updatedAt && (peer.configured || !own.configured);
+    if (peerWins) {
+      this.settings.journalPolicy = { ...peer };
+      this.settings.journalAutoCreate = peer.mode === "auto";
+      this.saveSettings().catch(() => {
+      });
+      return peer;
+    }
+    return own;
+  }
+  async applySharedJournalPolicy(policy, { from = "" } = {}) {
+    if (from === "agent-deck" || !policy) return;
+    const incoming = normalizeJournalPolicy(policy);
+    const own = this.getOwnJournalPolicy();
+    if (own.configured && incoming.updatedAt > 0 && own.updatedAt > incoming.updatedAt) return;
+    const same = own.configured === incoming.configured && own.mode === incoming.mode && own.templateSource === incoming.templateSource && own.templatePath === incoming.templatePath && own.templateText === incoming.templateText && own.aiPlacement === incoming.aiPlacement && own.aiAnchorHeading === incoming.aiAnchorHeading && own.updatedAt === incoming.updatedAt;
+    if (same) return;
+    this.settings.journalPolicy = { ...incoming };
+    this.settings.journalAutoCreate = incoming.mode === "auto";
+    await this.saveSettings();
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
+      this.settingTab.display();
+    }
+  }
+  async updateJournalPolicy(patch = {}) {
+    const cur = this.getJournalPolicy();
+    const next = normalizeJournalPolicy({
+      ...DEFAULT_JOURNAL_POLICY,
+      ...cur,
+      ...patch,
+      configured: patch.configured ?? true,
+      updatedAt: Number(patch.updatedAt) || Date.now()
+    });
+    this.settings.journalPolicy = { ...next };
+    this.settings.journalAutoCreate = next.mode === "auto";
+    await this.saveSettings();
+    const spiral = this.app?.plugins?.plugins?.["nautilus-spiral"];
+    try {
+      await spiral?.applySharedJournalPolicy?.(next, { from: "agent-deck" });
+    } catch {
+    }
+    try {
+      this.app?.workspace?.trigger?.("shared:journal-policy-changed", { from: "agent-deck", policy: next });
+    } catch {
+    }
+    return next;
+  }
+  async promptJournalPolicyIfNeeded({ day = "", targetPath = "", caller = "agent-deck", manualTrigger = false } = {}) {
+    const policy = this.getJournalPolicy();
+    if (policy.configured && !manualTrigger) return { saved: true, policy };
+    const dayStr = day || dayKeyToday(this.settings);
+    const pathStr = targetPath || journalPath(this.app, this.settings, dayStr);
+    return openSharedJournalSetupModal(this, {
+      day: dayStr,
+      targetPath: pathStr,
+      caller,
+      manualTrigger
+    });
+  }
   // ---------- ui refresh ----------
   // 供外部宿主/测试即时同步重绘编辑器装饰（跳过 120ms 防抖），无需直接触碰内部 _lineMaps。
   refreshEditorsNow() {
@@ -64237,8 +65208,8 @@ ${body}` });
     if (this._unloaded) return null;
     if (!manual && !shouldAutoCheckUpdate(this.settings)) return null;
     const fetchJson = async (url) => {
-      if (typeof obsidianNs2.requestUrl === "function") {
-        const res2 = await obsidianNs2.requestUrl({ url, headers: { Accept: "application/vnd.github+json", "User-Agent": "obsidian-agent-deck" } });
+      if (typeof obsidianNs3.requestUrl === "function") {
+        const res2 = await obsidianNs3.requestUrl({ url, headers: { Accept: "application/vnd.github+json", "User-Agent": "obsidian-agent-deck" } });
         return res2.json ?? JSON.parse(res2.text || "{}");
       }
       const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });

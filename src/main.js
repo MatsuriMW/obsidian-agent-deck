@@ -9,6 +9,8 @@ import fs from "fs";
 import { archiveCompletedTo } from "./journal-archive.js";
 import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS, hasBoundedJournalFrame } from "./organize-journal.js";
 import { readJournalLayout, configuredJournalLayout, repairJournalLayout, stripJournalLayout, JOURNAL_LAYOUT_INCOMPLETE, isJournalLayoutIncompleteError } from "./journal-layout.js";
+import { normalizeJournalPolicy, DEFAULT_JOURNAL_POLICY } from "./journal-policy.js";
+import { openSharedJournalSetupModal } from "./journal-setup-modal.js";
 import { JournalOrganizer } from "./journal-organizer.js";
 import { semanticTaskId } from "./task-id.js";
 import { AttentionTracker } from "./attention.js";
@@ -254,7 +256,14 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.journalSync = new JournalSync(this);
     this.journalOrganizer = new JournalOrganizer(this);
-    if (this.app.workspace.on) this.registerEvent(this.app.workspace.on("nautilus-spiral:day-cutoff-changed", () => this.scanNow(false)));
+    if (this.app.workspace.on) {
+      this.registerEvent(this.app.workspace.on("nautilus-spiral:day-cutoff-changed", () => this.scanNow(false)));
+      this.registerEvent(this.app.workspace.on("shared:journal-policy-changed", (payload) => {
+        if (payload && payload.from !== "agent-deck" && payload.policy) {
+          this.applySharedJournalPolicy(payload.policy, { from: payload.from });
+        }
+      }));
+    }
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
@@ -582,6 +591,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.defer(() => this.importNautilus(false).catch(() => {}), 3500);
       }
       this.defer(() => this.recoverJobs(), 4000);
+      this.getJournalPolicy();
       this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
       this.defer(() => this.checkForUpdates({ manual: false }).catch(() => {}), 12000);
     });
@@ -3559,7 +3569,14 @@ export default class AgentDeckPlugin extends Plugin {
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter(m => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings), showTimeRange: resolveRecordRules(this.settings).showTimeRange });
+    return planJournal(base, {
+      tracked,
+      archived: this.autoLog.archived(),
+      turns,
+      layout: configuredJournalLayout(this.settings),
+      showTimeRange: resolveRecordRules(this.settings).showTimeRange,
+      placementPolicy: this.getJournalPolicy(),
+    });
   }
 
   async writeJournal(file, base, next) {
@@ -5430,6 +5447,82 @@ export default class AgentDeckPlugin extends Plugin {
       this.settings.menuBarMigrated = true;
       await this.saveSettings();
     }
+  }
+
+  getOwnJournalPolicy() {
+    return normalizeJournalPolicy(this.settings.journalPolicy, {
+      legacyAutoCreate: this.settings.journalAutoCreate !== false,
+    });
+  }
+
+  getJournalPolicy() {
+    const own = this.getOwnJournalPolicy();
+    const spiral = this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const peerRaw = typeof spiral?.getOwnJournalPolicy === "function" ? spiral.getOwnJournalPolicy() : null;
+    if (!peerRaw) return own;
+    const peer = normalizeJournalPolicy(peerRaw);
+    const peerWins = (peer.configured && !own.configured)
+      || (peer.updatedAt > own.updatedAt && (peer.configured || !own.configured));
+    if (peerWins) {
+      this.settings.journalPolicy = { ...peer };
+      this.settings.journalAutoCreate = peer.mode === "auto";
+      this.saveSettings().catch(() => {});
+      return peer;
+    }
+    return own;
+  }
+
+  async applySharedJournalPolicy(policy, { from = "" } = {}) {
+    if (from === "agent-deck" || !policy) return;
+    const incoming = normalizeJournalPolicy(policy);
+    const own = this.getOwnJournalPolicy();
+    if (own.configured && incoming.updatedAt > 0 && own.updatedAt > incoming.updatedAt) return;
+    const same = own.configured === incoming.configured
+      && own.mode === incoming.mode
+      && own.templateSource === incoming.templateSource
+      && own.templatePath === incoming.templatePath
+      && own.templateText === incoming.templateText
+      && own.aiPlacement === incoming.aiPlacement
+      && own.aiAnchorHeading === incoming.aiAnchorHeading
+      && own.updatedAt === incoming.updatedAt;
+    if (same) return;
+    this.settings.journalPolicy = { ...incoming };
+    this.settings.journalAutoCreate = incoming.mode === "auto";
+    await this.saveSettings();
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
+      this.settingTab.display();
+    }
+  }
+
+  async updateJournalPolicy(patch = {}) {
+    const cur = this.getJournalPolicy();
+    const next = normalizeJournalPolicy({
+      ...DEFAULT_JOURNAL_POLICY,
+      ...cur,
+      ...patch,
+      configured: patch.configured ?? true,
+      updatedAt: Number(patch.updatedAt) || Date.now(),
+    });
+    this.settings.journalPolicy = { ...next };
+    this.settings.journalAutoCreate = next.mode === "auto";
+    await this.saveSettings();
+    const spiral = this.app?.plugins?.plugins?.["nautilus-spiral"];
+    try { await spiral?.applySharedJournalPolicy?.(next, { from: "agent-deck" }); } catch { /* peer sync best-effort */ }
+    try { this.app?.workspace?.trigger?.("shared:journal-policy-changed", { from: "agent-deck", policy: next }); } catch { /* ignore */ }
+    return next;
+  }
+
+  async promptJournalPolicyIfNeeded({ day = "", targetPath = "", caller = "agent-deck", manualTrigger = false } = {}) {
+    const policy = this.getJournalPolicy();
+    if (policy.configured && !manualTrigger) return { saved: true, policy };
+    const dayStr = day || dayKeyToday(this.settings);
+    const pathStr = targetPath || journalPath(this.app, this.settings, dayStr);
+    return openSharedJournalSetupModal(this, {
+      day: dayStr,
+      targetPath: pathStr,
+      caller,
+      manualTrigger,
+    });
   }
 
   // ---------- ui refresh ----------

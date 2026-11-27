@@ -1,6 +1,14 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.38**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.39**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.39 首次缺日记统一引导共享策略与设置页顶部 TOC 发版（2026-11-27）
+
+- **跨插件共享策略、首次缺日记引导与设置页 5 页顶部 TOC（`src/journal-policy.js`、`src/journal-setup-modal.js`、`src/main.js`、`src/autolog.js`、`src/organize-journal.js`、`src/settings.js`、`src/styles/views/{modals,settings}.css`、`src/locales/{en/dialogs,en/settings,zh-TW}.js` + 配套 `nautilus-spiral` `2.6.16`）**：
+  - 当检测到今日日记尚未创建且用户尚未设定创建策略（`journalPolicy.configured !== true`，含老版本升级用户首次触发，保留原开关作为默认预选），通过全局单弹窗互斥锁（`__obSharedJournalPromptState`）仅弹出一个引导窗：支持「自动新建（Obsidian 日记模板 / 指定库内 `.md` 文件 / 手动输入自定义模板 / 空白）」或「自己手动新建（静默等待直到今天日记存在再自动读写）」，以及选择 AI 自动记录区域初始落点（日记末尾 / 开头且自动避开中文与英文 YAML frontmatter / 模板指定标题下 / `{{ai}}` 原位占位符）。
+  - 关闭/点「今天先不建」当天不再在后台反复打扰，用户主动点「打开今日日记」「现在整理一次」或写入复盘时可再次唤起；两款插件通过 `getOwnJournalPolicy` / `applySharedJournalPolicy` / `shared:journal-policy-changed` 双向实时同步并各自保留无对方插件时的独立可用性。
+  - 修复 `organize-journal.js` 原 `splitFrontMatter` 仅认 ASCII YAML 键导致中文 frontmatter 键（如 `归属库: Note`）无法避让的问题，并在 5 个设置页顶部增加 `.ad-set-toc` 吸顶一键跳转目录（自动展开折叠 `<details>`、>1200px 快速直达、切页回顶）。
+- **验证与未测空白（macOS arm64）**：`npm run build && npm test && npm run eval && npm run check:deploy && git diff --check`、`nautilus-spiral` 全套 8 组回归（主库正本 + 公开版）、`马自立` Vault 热重载 + `dev:errors` 以及 5 轮 Obsidian 实机边界测试（模板路径缺省 `.md`/代码块假标题隔离、`CRLF`+缺标题回退末尾+关闭抑制、单插件独立弹窗/隐藏 AI 落点、弹窗期文件抢建防覆盖、双向设置页 DOM 同步与 5 页 TOC 往返滚动）全部在 macOS arm64 通过；Windows 真机 GUI 与弹窗交互未实测。
 
 ## 1.13.38 独立结论总结层、设置页整合与日记防抢跑发版（2026-11-27）
 

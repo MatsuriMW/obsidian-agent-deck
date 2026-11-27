@@ -24,6 +24,8 @@ import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
 } from "./llm.js";
 import { DEFAULT_CUSTOM_CONCLUSION_PROMPT, previewConclusion } from "./conclusion.js";
+import { detectObsidianDailyTemplate } from "./journal-policy.js";
+import { VaultMarkdownPickerModal } from "./journal-setup-modal.js";
 import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
 import { discoverMuseConversations } from "./muse-sessions.js";
 import { canPickNativeFolder, folderExists, normalizeProjectFolder, pickNativeFolder, projectFolderEntries, sameFolder } from "./project-folders.js";
@@ -101,6 +103,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   hide() {
     this._timers?.dispose();
     this._dreamTimer = null;
+    this._tocCleanup?.();
+    this._tocCleanup = null;
     this._aboutComp?.unload?.();
     this._aboutComp = null;
   }
@@ -149,7 +153,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     containerEl.empty();
     containerEl.addClass("ad-settings");
 
-    const nav = containerEl.createDiv({ cls: "ad-set-nav" });
+    const sticky = containerEl.createDiv({ cls: "ad-set-sticky" });
+    const nav = sticky.createDiv({ cls: "ad-set-nav" });
     const dirty = this.isDraftDirty();
     for (const [id, label, icon] of TABS) {
       const isDirtyTab = id === "delegate" && dirty;
@@ -158,9 +163,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const ic = b.createSpan({ cls: "ad-tabicon" });
       setLucide(ic, icon);
       b.createSpan({ text });
-      b.onclick = () => { this.tab = id; this.display(); };
+      b.onclick = () => { this.tab = id; containerEl.scrollTop = 0; this.display(); };
     }
+    const tocHost = sticky.createDiv({
+      cls: "ad-set-toc",
+      attr: { role: "navigation", "aria-label": t("本页目录") },
+    });
     const body = containerEl.createDiv({ cls: "ad-set-body" });
+    this._tocItems = [];
+    this._tabBody = body;
     if (this.tab === "delegate") {
       this.renderDelegate(body);
       this.renderDraftBar(body);
@@ -173,6 +184,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     } else {
       this.renderAbout(body);
     }
+    this.renderTabToc(tocHost, sticky, containerEl);
+    this._tabBody = null;
     if (this._scrollToModels) {
       const targetSel = typeof this._scrollToModels === "string"
         ? `.ad-modelgroup[data-agent="${this._scrollToModels}"]`
@@ -191,8 +204,97 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   // ---------- shared bits ----------
-  card(parent, title, sub, renderRight = null) {
+  registerToc(el, label) {
+    if (!this._tocItems || !el || !label) return;
+    this._tocItems.push({ el, label: String(label).trim() });
+  }
+
+  renderTabToc(tocHost, sticky, scrollRoot) {
+    this._tocCleanup?.();
+    this._tocCleanup = null;
+    const items = (this._tocItems || []).filter((it) => it && it.el && it.label);
+    if (!items.length) {
+      tocHost.hidden = true;
+      return;
+    }
+    tocHost.hidden = false;
+    tocHost.createSpan({ cls: "ad-set-toc__label", text: t("本页目录") });
+    const btns = [];
+    const setActive = (idx) => {
+      btns.forEach((b, i) => {
+        const on = i === idx;
+        b.classList?.toggle?.("is-on", on);
+        b.setAttribute?.("aria-current", on ? "true" : "false");
+      });
+    };
+    const headerOffset = () => (sticky?.getBoundingClientRect?.().height || 88) + 12;
+    let lockUntil = 0;
+    let lockedIdx = -1;
+
+    items.forEach((item, idx) => {
+      const btn = tocHost.createEl("button", {
+        cls: "ad-set-toc__item" + (idx === 0 ? " is-on" : ""),
+        text: item.label,
+        attr: { type: "button", "aria-current": idx === 0 ? "true" : "false" },
+      });
+      btn.onclick = () => {
+        const target = item.el;
+        if (target.tagName === "DETAILS" || typeof target.open === "boolean") target.open = true;
+        const offset = headerOffset();
+        if (target.style) target.style.scrollMarginTop = `${Math.ceil(offset)}px`;
+        lockedIdx = idx;
+        lockUntil = Date.now() + 800;
+        setActive(idx);
+        const canCustomScroll = scrollRoot
+          && typeof scrollRoot.scrollTo === "function"
+          && typeof target.getBoundingClientRect === "function"
+          && typeof scrollRoot.getBoundingClientRect === "function"
+          && scrollRoot.scrollHeight > scrollRoot.clientHeight;
+        if (canCustomScroll) {
+          const top = idx === 0
+            ? 0
+            : Math.max(0, scrollRoot.scrollTop + (target.getBoundingClientRect().top - scrollRoot.getBoundingClientRect().top) - offset);
+          const behavior = Math.abs(top - scrollRoot.scrollTop) > 1200 ? "auto" : "smooth";
+          scrollRoot.scrollTo({ top, behavior });
+        } else {
+          target.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        }
+        target.classList?.add?.("is-toc-flash");
+        this._timers?.setTimeout?.(() => target.classList?.remove?.("is-toc-flash"), 900);
+      };
+      btns.push(btn);
+    });
+
+    if (scrollRoot && typeof scrollRoot.addEventListener === "function") {
+      const onScroll = () => {
+        if (Date.now() < lockUntil && lockedIdx >= 0) {
+          setActive(lockedIdx);
+          return;
+        }
+        const atBottom = scrollRoot.scrollHeight > scrollRoot.clientHeight
+          && (scrollRoot.scrollTop + scrollRoot.clientHeight >= scrollRoot.scrollHeight - 4);
+        if (atBottom && items.length) {
+          setActive(items.length - 1);
+          return;
+        }
+        const threshold = (sticky?.getBoundingClientRect?.().bottom || scrollRoot.getBoundingClientRect?.().top || 0) + 28;
+        let activeIdx = 0;
+        for (let i = 0; i < items.length; i++) {
+          const rect = items[i].el.getBoundingClientRect?.();
+          if (rect && rect.top <= threshold) activeIdx = i;
+        }
+        setActive(activeIdx);
+      };
+      scrollRoot.addEventListener("scroll", onScroll, { passive: true });
+      this._tocCleanup = () => scrollRoot.removeEventListener("scroll", onScroll);
+    }
+  }
+
+  card(parent, title, sub, renderRight = null, opts = null) {
     const c = parent.createDiv({ cls: "ad-card" });
+    if (parent === this._tabBody && title && opts?.toc !== false) {
+      this.registerToc(c, opts?.tocLabel || title);
+    }
     if (title) {
       const h = c.createDiv({ cls: "ad-card__head" + (renderRight ? " ad-card__head--bar" : "") });
       const textWrap = renderRight ? h.createDiv({ cls: "ad-card__head-text" }) : h;
@@ -1669,7 +1771,105 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const det = detectJournalFormat(this.app, s);
     this.rowText(jr, t("日记目录"), t("当前：{folder}；今天：{path}", { folder: det.folder || t("库根目录"), source: det.folderSource, path: journalPath(this.app, s) }), s.journalFolder || "", t("自动：{folder}", { folder: det.folder || t("库根目录") }), (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
     this.rowText(jr, t("日记文件名格式"), t("例如 YYYY-MM-DD；当前：{format}", { format: det.format, source: det.source }), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
-    this.rowToggle(jr, t("自动创建今日日记"), t("今日日记不存在时按模板自动新建；关闭后只写入已存在的日记，避免抢在自定义模板或 Templater 之前建空文件"), s.journalAutoCreate !== false, (v) => { s.journalAutoCreate = v; p.saveSettings(); });
+    const policy = typeof p.getJournalPolicy === "function" ? p.getJournalPolicy() : (s.journalPolicy || {});
+    const hasSpiral = !!this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const obsTpl = detectObsidianDailyTemplate(this.app);
+    this.row(
+      jr,
+      t("今日日记创建方式"),
+      hasSpiral
+        ? t("与螺旋日程共用同一套设定；选「手动新建」时两款插件都会等你建好后再读写")
+        : t("今日日记不存在时的处理方式；选「手动新建」时会等你建好后再写入"),
+      (rr) => {
+        const box = rr.createDiv({ cls: "ad-jpolicy-inline" });
+        this.segmented(
+          box,
+          [{ id: "auto", label: t("自动新建") }, { id: "manual", label: t("手动新建") }],
+          policy.mode === "manual" ? "manual" : "auto",
+          (v) => {
+            if (typeof p.updateJournalPolicy === "function") {
+              p.updateJournalPolicy({ mode: v, configured: true }).then(() => this.display());
+            } else {
+              s.journalAutoCreate = v === "auto";
+              p.saveSettings();
+              this.display();
+            }
+          },
+        );
+        if (typeof p.promptJournalPolicyIfNeeded === "function") {
+          const wizardBtn = box.createEl("button", { cls: "ad-linkbtn", text: t("打开引导弹窗"), attr: { type: "button" } });
+          wizardBtn.onclick = () => p.promptJournalPolicyIfNeeded({ manualTrigger: true }).then(() => this.display());
+        }
+      },
+    );
+    if (policy.mode !== "manual") {
+      this.rowSelect(
+        jr,
+        t("新建日记模板"),
+        t("指定要套用的模板内容；支持 {{title}}、{{date}}、{{date:YYYY-MM-DD}}、{{time}} 和 {{ai}}"),
+        [
+          { id: "obsidian", label: obsTpl ? t("跟随 Obsidian 模板（{name}）", { name: obsTpl }) : t("跟随 Obsidian 模板（当前未配置）") },
+          { id: "file", label: t("指定库内文件") },
+          { id: "custom", label: t("手动输入模板") },
+          { id: "none", label: t("空白日记") },
+        ],
+        policy.templateSource || "obsidian",
+        (v) => {
+          p.updateJournalPolicy?.({ templateSource: v, configured: true }).then(() => this.display());
+        },
+      );
+      if (policy.templateSource === "file") {
+        this.row(jr, t("模板文件路径"), t("选择库内 Markdown 文件作为新建日记的模板"), (rr) => {
+          const row = rr.createDiv({ cls: "ad-jpolicy-filerow" });
+          const inp = row.createEl("input", {
+            cls: "ad-input",
+            type: "text",
+            value: policy.templatePath || "",
+            attr: { placeholder: t("输入库内模板路径，如：Templates/Daily.md") },
+          });
+          inp.onchange = () => { p.updateJournalPolicy?.({ templatePath: inp.value.trim(), configured: true }); };
+          const pick = row.createEl("button", { cls: "ad-btn", text: t("选择文件"), attr: { type: "button" } });
+          pick.onclick = () => {
+            new VaultMarkdownPickerModal(this.app, (file) => {
+              p.updateJournalPolicy?.({ templatePath: file.path, configured: true }).then(() => this.display());
+            }).open();
+          };
+        });
+      } else if (policy.templateSource === "custom") {
+        this.row(jr, t("模板内容"), t("输入模板正文（支持 {{title}}、{{date}}、{{date:YYYY-MM-DD}}、{{time}}、{{ai}}）"), (rr) => {
+          const placeholderText = t("例如：用 YAML 属性头、## 今日计划 与 {{ai}} 占位标记自定义模板");
+          const ta = rr.createEl("textarea", {
+            cls: "ad-textarea ad-jpolicy-textarea",
+            attr: { rows: "4", placeholder: placeholderText },
+          });
+          ta.value = policy.templateText || "";
+          ta.onchange = () => { p.updateJournalPolicy?.({ templateText: ta.value, configured: true }); };
+        });
+      }
+    }
+    this.rowSelect(
+      jr,
+      t("AI 自动记录区域位置"),
+      t("决定首次自动写入或整理时，AI 区块插在日记的哪个位置"),
+      [
+        { id: "bottom", label: t("日记末尾（默认）") },
+        { id: "top", label: t("日记开头（属性头下方）") },
+        { id: "after-heading", label: t("指定标题下方") },
+        { id: "placeholder", label: t("模板里的 {{ai}} 位置") },
+      ],
+      policy.aiPlacement || "bottom",
+      (v) => { p.updateJournalPolicy?.({ aiPlacement: v, configured: true }).then(() => this.display()); },
+    );
+    if (policy.aiPlacement === "after-heading") {
+      this.rowText(
+        jr,
+        t("目标标题名称"),
+        t("输入模板中的标题（如 ## AI 记录），找不到时自动落到日记末尾"),
+        policy.aiAnchorHeading || "",
+        t("如：## AI 记录 或 今日工作"),
+        (v) => { p.updateJournalPolicy?.({ aiAnchorHeading: v.trim(), configured: true }); },
+      );
+    }
     this.rowToggle(jr, t("自动会话记录"), t("自动将活跃会话建项并记入今日日记"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
     const autoLogDetails = jr.createEl("details", { cls: "ad-subdetails ad-autolog-picker" });
     autoLogDetails.dataset.section = "auto-log-agents";
@@ -2377,7 +2577,14 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     mcpCfg.excludeAiLogs = mcpCfg.excludeAiLogs !== false;
     if (typeof mcpCfg.agentPrompt !== "string") mcpCfg.agentPrompt = "";
 
-    const mcpCard = this.card(body, t("外部 Agent 接入（MCP / CLI）"), t("让 Claude Code、Codex、Antigravity、OpenCode、DeepSeek Harness、Cursor 等在库外直接检索全库笔记（FTS5）与 Dream 记忆"));
+    const mcpCard = this.card(
+      body,
+      t("外部 Agent 接入（MCP / CLI）"),
+      t("让 Claude Code、Codex、Antigravity、OpenCode、DeepSeek Harness、Cursor 等在库外直接检索全库笔记（FTS5）与 Dream 记忆"),
+      null,
+      { toc: false },
+    );
+    this.registerToc(mcpCard, t("工具与隔离"));
     const mcpPaths = p.resolveMcpPaths?.() || {};
     const cfgDir = p.app?.vault?.configDir || "";
     const core = p.contextCore;
@@ -2503,6 +2710,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         }, 0);
       }, "ad-btn--compact");
     });
+    this.registerToc(idxRow, t("本地全文索引"));
     const idxTextEl = idxRow.querySelector(".ad-row__desc");
     renderIndexStats = () => {
       if (!idxTextEl) return;
@@ -2527,6 +2735,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     // 显性控制 5：可手动编辑的 Agent 自动触发提示词 + 复制 / 恢复默认
     const promptField = mcpCard.createDiv({ cls: "ad-field ad-mcp-prompt" });
+    this.registerToc(promptField, t("外部 Agent 提示词"));
     promptField.createDiv({ cls: "ad-field__label", text: t("外部 Agent 自动触发提示词（可编辑后复制）") });
     promptField.createDiv({ cls: "ad-field__desc", text: t("粘贴到 ~/.claude/CLAUDE.md、~/.codex/AGENTS.md 或 Cursor / Antigravity 全局规则，让 Agent 主动查记忆") });
     promptTa = promptField.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3" } });
@@ -2554,6 +2763,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (p.vaultPath && core?.listMcpClients && core?.installMcpClient && core?.uninstallMcpClient) {
       const mcpScript = mcpPaths.mcpScript || "";
       const clientsWrap = mcpCard.createDiv({ cls: "ad-mcp-clients" });
+      this.registerToc(clientsWrap, t("本机客户端接入"));
       const headRow = clientsWrap.createDiv({ cls: "ad-mcp-clients__head" });
       headRow.createSpan({ cls: "ad-mcp-clients__title", text: t("本机客户端一键接入") });
       const headBtns = headRow.createDiv({ cls: "ad-btnrow ad-mcp-clients__tools" });
@@ -2636,6 +2846,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.bigButton(mcpBtns, t("复制 Claude Code 命令"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }), "ad-btn--compact");
     this.bigButton(mcpBtns, t("复制 CLI 查询示例"), () => p.copyMcpConfig?.("cli"), "ad-btn--compact");
     mcpCard.appendChild(mcpMore.parentElement);
+    this.registerToc(mcpMore.parentElement, t("手动复制配置"));
   }
 
   renderExperimental(body) {

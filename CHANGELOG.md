@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.39
+
+- **首次缺日记统一引导弹窗与跨插件共享日记创建策略（[`src/journal-policy.js`](src/journal-policy.js)、[`src/journal-setup-modal.js`](src/journal-setup-modal.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/autolog.js`](src/autolog.js)、[`src/main.js`](src/main.js)、[`src/settings.js`](src/settings.js)）**：
+  - 当检测到今日日记尚未创建且用户尚未设定规则时，通过跨插件互斥锁全局仅弹一次引导窗（兼顾无螺旋日程时的独立运行，以及有螺旋日程时双向实时同步同一份 `journalPolicy`）：可选择「自动新建（Obsidian 模板 / 库内 Markdown 文件 / 手动输入自定义模板 / 空白）」或「自己手动新建（静默等待用户或 Templater 建好后再读取写入）」，关闭或点「今天先不建」当天不再在后台反复打扰。
+  - 新增 AI 自动记录区域初始落点选择（日记末尾 / 日记开头且自动避开中文与英文 YAML frontmatter / 自动识别模板标题并置于指定标题下方 / `{{ai}}` 模板原位占位符）；修复 [`src/organize-journal.js`](src/organize-journal.js) `splitFrontMatter` 仅识别 ASCII 键名的问题。
+- **设置页 5 页顶部吸顶 TOC 一键跳转（[`src/settings.js`](src/settings.js)、[`src/styles/views/settings.css`](src/styles/views/settings.css)）**：
+  - 为「委派」「记录」「Dreaming」「实验功能」「关于」全部 5 个设置页顶部增加目录导航胶囊，支持切页自动回顶、滚动追踪高亮、点击平滑/快速直达、自动展开对应折叠 `<details>` 及页底/首项精确回顶定位。
+
 ## 1.13.38
 
 - **独立任务结论总结层与设置页高信息密度整合（[`src/conclusion.js`](src/conclusion.js)、[`src/journal.js`](src/journal.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/settings.js`](src/settings.js)、[`src/styles/views/settings.css`](src/styles/views/settings.css)）**：

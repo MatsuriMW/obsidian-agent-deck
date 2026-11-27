@@ -63,6 +63,7 @@ class Element {
   setText(t){this.options={...this.options,text:t};}
   appendChild(el){if(el.parentElement)el.parentElement.children=el.parentElement.children.filter(child=>child!==el);el.parentElement=this;this.children.push(el);return el;}
   addEventListener(){}
+  removeEventListener(){}
   querySelector(sel){if(sel===':scope > .ad-row__right')return this.children.find(c=>c.classList.contains('ad-row__right'));if(sel===':scope > .ad-row__left')return this.children.find(c=>c.classList.contains('ad-row__left'));return null;}
   createEl(tag,options){const el=new Element(tag,options);return this.appendChild(el);}
   createDiv(options){return this.createEl('div',options);}
@@ -473,4 +474,57 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
   dreamTab.hide();
   assert.ok(!dreamPage.all().some(el => el.options.text === '外部 Agent 接入（MCP / CLI）'), 'Dreaming tab no longer contains Memory MCP card');
   console.log('PASS tab placement: AI 协作回顾 under Recording, Memory MCP under Experiments');
+}
+
+// Verify every Settings tab renders a top TOC and clicking an item scrolls and expands <details> when needed.
+{
+  const expectedTocByTab = {
+    delegate: ['默认委派到', 'Agent 配置', '路由与发送规则', '多任务与终端'],
+    record: ['来源与扫描', '日记与归档', '任务结论与总结模型', '展示与维护'],
+    dream: ['记忆库工作区', 'Dreaming · 长期记忆', '与其他 Agent 共享记忆'],
+    experimental: ['工具与隔离', '本地全文索引', '外部 Agent 提示词', '本机客户端接入', '手动复制配置'],
+    about: ['Agent Deck', '界面语言', '核心结构与信息流转', '常用操作', '版本与支持'],
+  };
+  const tocTab = new AgentDeckSettingsTab({}, {
+    ...plugin,
+    vaultPath: '/tmp/ad-toc-test',
+    manifest: { version: '1.13.38' },
+    usage: { files: new Map(), meta: new Map(), errors: [] },
+    app: {},
+    dreaming: {
+      storeMode: false,
+      dir: 'Agent Deck/记忆',
+      busy: false,
+      progress: { phase: 'idle', message: '' },
+      sharing: { busy: false, status: '' },
+    },
+    contextCore: {
+      listMcpClients: () => [],
+      installMcpClient: () => {},
+      uninstallMcpClient: () => {},
+      peekVaultIndexStatus: () => ({ exists: false, ftsEngine: 'sqlite-fts5' }),
+    },
+  });
+  for (const [tabId, labels] of Object.entries(expectedTocByTab)) {
+    tocTab.tab = tabId;
+    tocTab.containerEl = new Element();
+    tocTab.containerEl.ownerDocument = { activeElement: null };
+    tocTab.display();
+    const tocEl = tocTab.containerEl.all().find(el => el.classList.contains('ad-set-toc'));
+    assert.ok(tocEl && !tocEl.hidden, `${tabId} renders top TOC bar`);
+    const btns = tocEl.all().filter(el => el.classList.contains('ad-set-toc__item'));
+    assert.deepEqual(btns.map(b => b.options.text), labels, `${tabId} TOC lists expected section labels`);
+    const lastIdx = btns.length - 1;
+    const scrolled = [];
+    const targetCard = tocTab._tocItems.at(-1)?.el;
+    assert.ok(targetCard, `${tabId} TOC target element exists`);
+    targetCard.scrollIntoView = (opts) => scrolled.push(opts);
+    btns[lastIdx].onclick();
+    assert.equal(scrolled.length, 1, `${tabId} TOC jump scrolls to target section`);
+    if (tabId === 'experimental') {
+      assert.equal(targetCard.open, true, 'experimental TOC jump opens collapsed details section');
+    }
+  }
+  tocTab.hide();
+  console.log('PASS all 5 Settings tabs render top TOC with jump behavior');
 }

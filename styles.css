@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.38 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.39 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -4136,17 +4136,69 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   font-size: 12px;
   margin-top: 5px;
 }
-.ad-settings .ad-set-nav {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  border-bottom: 1px solid var(--ad-line);
-  margin-bottom: 16px;
+.ad-settings .ad-set-sticky {
   position: sticky;
   top: 0;
   background: var(--background-primary);
   z-index: 3;
   padding-top: 4px;
+  margin-bottom: 14px;
+}
+.ad-settings .ad-set-nav {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ad-line);
+}
+.ad-settings .ad-set-toc {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--ad-line);
+}
+.ad-settings .ad-set-toc[hidden] {
+  display: none;
+}
+.ad-settings .ad-set-toc__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ad-muted);
+  margin-right: 2px;
+  flex: none;
+}
+.ad-settings .ad-set-toc__item {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  padding: 3px 9px;
+  min-height: 24px;
+  height: auto;
+  border-radius: 999px;
+  border: 1px solid var(--ad-line);
+  background: var(--ad-surface);
+  box-shadow: none;
+  color: var(--ad-muted);
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ad-settings .ad-set-toc__item:hover {
+  color: var(--ad-ink);
+  border-color: color-mix(in srgb, var(--interactive-accent) 45%, var(--ad-line));
+}
+.ad-settings .ad-set-toc__item.is-on {
+  color: var(--interactive-accent);
+  border-color: color-mix(in srgb, var(--interactive-accent) 55%, var(--ad-line));
+  background: color-mix(in srgb, var(--interactive-accent) 11%, var(--ad-surface));
+  font-weight: 600;
+}
+.ad-settings .is-toc-flash {
+  border-color: var(--interactive-accent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 20%, transparent);
+  transition: box-shadow .2s ease, border-color .2s ease;
 }
 .ad-settings .ad-set-tab {
   display: inline-flex;
@@ -5389,6 +5441,29 @@ body.ad-dragging-session .markdown-source-view .cm-content {
     grid-template-columns: 1fr;
   }
 }
+.ad-settings .ad-jpolicy-inline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ad-settings .ad-jpolicy-filerow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ad-settings .ad-jpolicy-filerow .ad-input {
+  flex: 1;
+  min-width: 0;
+}
+.ad-settings .ad-jpolicy-textarea {
+  width: 100%;
+  min-height: 92px;
+  font-family: var(--ad-figure);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
 
 /* src/styles/views/modals.css */
 .ad-modal {
@@ -6233,6 +6308,109 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   display: flex;
   gap: 6px;
   justify-content: flex-end;
+}
+.ad-modal.ad-jsetup {
+  --ad-modal-w: min(580px, 94vw);
+}
+.ad-modal.ad-jsetup .ad-jsetup__why {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--ad-muted);
+}
+.ad-modal.ad-jsetup .ad-jsetup__path {
+  margin-top: 8px;
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  font-family: var(--ad-figure);
+  font-size: 11px;
+  color: var(--ad-ink);
+}
+.ad-modal.ad-jsetup .ad-jsetup__sec {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--ad-line);
+}
+.ad-modal.ad-jsetup .ad-jsetup__sec--quiet {
+  opacity: .92;
+}
+.ad-modal.ad-jsetup .ad-jsetup__label {
+  font-size: 13px;
+  font-weight: 650;
+  margin-bottom: 8px;
+  color: var(--ad-ink);
+}
+.ad-modal.ad-jsetup .ad-jsetup__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.ad-modal.ad-jsetup .ad-jsetup__choice {
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-surface);
+  cursor: pointer;
+  height: auto;
+  white-space: normal;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+.ad-modal.ad-jsetup .ad-jsetup__choice.is-on {
+  border-color: var(--interactive-accent);
+  background: color-mix(in srgb, var(--interactive-accent) 10%, var(--ad-surface));
+}
+.ad-modal.ad-jsetup .ad-jsetup__choice-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ad-ink);
+}
+.ad-modal.ad-jsetup .ad-jsetup__choice-desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ad-muted);
+}
+.ad-modal.ad-jsetup .ad-jsetup__seg {
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.ad-modal.ad-jsetup .ad-jsetup__filerow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ad-modal.ad-jsetup .ad-jsetup__filerow .ad-input {
+  flex: 1;
+  min-width: 0;
+}
+.ad-modal.ad-jsetup .ad-jsetup__textarea {
+  width: 100%;
+  min-height: 108px;
+  font-family: var(--ad-figure);
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+.ad-modal.ad-jsetup .ad-jsetup__headingbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ad-modal.ad-jsetup .ad-jsetup__headingbox :is(.ad-select, .ad-input) {
+  width: 100%;
+}
+.ad-modal.ad-jsetup .ad-jsetup__hint {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--ad-muted);
 }
 
 /* src/styles/views/review.css */
