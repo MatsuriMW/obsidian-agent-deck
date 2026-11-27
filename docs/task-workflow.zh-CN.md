@@ -1,6 +1,13 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.35**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.36**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.36 Windows CLI 进程树终止与 `agy` 长提示词流式输入修复
+
+- **Windows CI 与热重载实测暴露并修复的运行故障（`src/security.js`、`src/delegation-runners.js`、`src/main.js`、`test/antigravity-acp.test.mjs`、`test/security-trace.test.mjs`、`test/next-round-fixes.test.mjs`、`.github/workflows/ci.yml`）**：
+  - `killChildProcess()` 在 Windows 下改为先执行 `taskkill /PID <pid> /T /F` 终止 `.cmd` 子树、仅在失败且父进程仍存活时回退 `child.kill()`，避免先杀父 `cmd.exe` 导致子孙进程孤儿化并永久锁死 stdio 句柄（同步将 `spawnCapture()` 超时清理切入 `killChildProcess()`）。
+  - `AntigravityRunner` 在 Windows `.cmd`/`.bat` 包装器或超长提示词下改用官方 `agy --input-format stream-json --output-format stream-json` 通过 `stdin` 传递完整多行 NDJSON `user` 消息，避免 8191 字符命令行截断与换行丢失；CI 补充 `timeout-minutes: 15`。
+  - `primaryAgents()` / `agentEnabled()` / `spiralUsageSnapshot()` 补齐重载窗口期 `this.settings` 与 `_unloaded` 空防护，修复热重载时螺旋日程偶发读取未就绪 `this.settings` 的 `TypeError`。Windows 桌面端 Obsidian GUI 仍属未测空白。
 
 ## 1.13.35 多轮压测缺陷清零（macOS 三轮实测 + Windows CI 修复）
 

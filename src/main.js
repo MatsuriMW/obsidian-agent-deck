@@ -1990,9 +1990,9 @@ export default class AgentDeckPlugin extends Plugin {
   modelEnabled(id) { return (this.settings.models.enabled || []).includes(id); }
   modelLabel(id) { const m = this.modelById(id); return m ? m.name : (id || ""); }
 
-  primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
+  primaryAgents() { return (this.settings?.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
-  agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
+  agentEnabled(agent) { return this.isPrimary(agent) || (this.settings?.agents || {})[agent] !== false; }
   agentCatalog() {
     const out = {};
     for (const id of AGENT_ORDER) {
@@ -2003,6 +2003,7 @@ export default class AgentDeckPlugin extends Plugin {
     return out;
   }
   spiralUsageSnapshot(format = "YYYY_MM_DD") {
+    if (this._unloaded || !this.settings) return null;
     const fmt = String(format || "YYYY_MM_DD");
     const mapKey = (k) => {
       const m = /^(\d{4})_(\d{2})_(\d{2})$/.exec(String(k || ""));

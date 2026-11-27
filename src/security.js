@@ -265,7 +265,23 @@ export function spawnCli(bin, args = [], opts = {}) {
 export function killChildProcess(child, signal = "SIGTERM") {
   if (!child) return;
   if (process.platform === "win32" && child.pid) {
-    try { execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {}); } catch { /* gone */ }
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    try {
+      const killer = execFile(
+        "taskkill",
+        ["/PID", String(child.pid), "/T", "/F"],
+        { windowsHide: true },
+        (err) => {
+          if (err && child.exitCode === null && child.signalCode === null) {
+            try { child.kill(signal); } catch { /* gone */ }
+          }
+        },
+      );
+      if (typeof killer?.unref === "function") killer.unref();
+      return;
+    } catch {
+      // Fall back to direct kill if taskkill cannot be spawned.
+    }
   }
   try { child.kill(signal); } catch { /* gone */ }
 }

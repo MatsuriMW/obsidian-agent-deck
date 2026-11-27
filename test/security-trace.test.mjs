@@ -14,6 +14,7 @@ import {
   spawnCli,
   killChildProcess,
 } from "../src/security.js";
+import { writeMockNodeBin, rmDirSafe } from "./helpers/mock-cli.mjs";
 import {
   RunTrace,
   classifyError,
@@ -152,6 +153,23 @@ test("security: spawnCli runs node script cleanly and killChildProcess handles n
   });
   assert.equal(code, 0);
   assert.equal(out, "CLI_OK");
+});
+
+test("security: killChildProcess terminates a spawned CLI shim tree promptly without leaving orphan handles", async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-sec-kill-"));
+  try {
+    const bin = writeMockNodeBin(dir, "sleeper", "setInterval(() => {}, 1000);\n");
+    const child = spawnCli(bin, [], { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    await new Promise((r) => setTimeout(r, 50));
+    const closed = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error("child process tree did not close within 4000ms")), 4000);
+      child.once("close", (code, signal) => { clearTimeout(t); resolve({ code, signal }); });
+    });
+    killChildProcess(child, "SIGTERM");
+    await closed;
+  } finally {
+    rmDirSafe(dir);
+  }
 });
 
 test("security: evaluatePermissionPolicy handles Windows long-path prefixes, case-insensitivity, and outside symlinks", () => {

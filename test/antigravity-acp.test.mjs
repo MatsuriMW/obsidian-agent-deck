@@ -10,7 +10,7 @@ import { DEFAULTS } from '../src/constants.js';
 import { writeMockNodeBin, cleanupDelegatorDir, rmDirSafe } from './helpers/mock-cli.mjs';
 
 function fixture(mode='normal') {
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-agy-')),invocations=path.join(dir,'invocations.jsonl');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-agy-')),invocations=path.join(dir,'invocations.jsonl'),prompts=path.join(dir,'prompts.jsonl');
  const bin=writeMockNodeBin(dir,'agy',`const fs=require('fs');
 const mode=${JSON.stringify(mode)};
 const argv=process.argv.slice(2);
@@ -33,22 +33,46 @@ if(mode==='wait'){
 }
 const rIdx=argv.indexOf('--resume');
 const sid=(rIdx>=0&&argv[rIdx+1])||'agy-session';
-process.stdout.write(JSON.stringify({event:'init',conversation_id:sid,init:{model:'gemini-test'}})+'\\n');
-process.stdout.write(JSON.stringify({event:'step_update',step_update:{conversation_id:sid,step_index:1,state:'ACTIVE',step_type:'agent_response',text_delta:'AGY_'}})+'\\n');
-process.stdout.write(JSON.stringify({event:'step_update',step_update:{conversation_id:sid,step_index:1,state:'DONE',step_type:'agent_response',text_delta:'OK'}})+'\\n');
-process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:sid,status:'SUCCESS',response:'AGY_OK'}})+'\\n');
+function finishTurn(promptText){
+ fs.appendFileSync(${JSON.stringify(prompts)},JSON.stringify(promptText)+'\\n');
+ process.stdout.write(JSON.stringify({event:'init',conversation_id:sid,init:{model:'gemini-test'}})+'\\n');
+ process.stdout.write(JSON.stringify({event:'step_update',step_update:{conversation_id:sid,step_index:1,state:'ACTIVE',step_type:'agent_response',text_delta:'AGY_'}})+'\\n');
+ process.stdout.write(JSON.stringify({event:'step_update',step_update:{conversation_id:sid,step_index:1,state:'DONE',step_type:'agent_response',text_delta:'OK'}})+'\\n');
+ process.stdout.write(JSON.stringify({event:'result',result:{conversation_id:sid,status:'SUCCESS',response:'AGY_OK'}})+'\\n');
+}
+const inFmtIdx=argv.indexOf('--input-format');
+if(inFmtIdx>=0&&argv[inFmtIdx+1]==='stream-json'){
+ let buf='';
+ process.stdin.setEncoding('utf8');
+ process.stdin.on('data',chunk=>{buf+=chunk;});
+ process.stdin.on('end',()=>{
+  const lines=buf.split(/\\r?\\n/).map(s=>s.trim()).filter(Boolean);
+  let promptText='';
+  for(const line of lines){
+   const msg=JSON.parse(line);
+   if(msg.event!=='user'||typeof msg.message?.content!=='string'){process.stderr.write('invalid stream input');process.exit(1);}
+   promptText=msg.message.content;
+  }
+  finishTurn(promptText);
+ });
+}else{
+ const pArg=argv.find(a=>a.startsWith('--print='))||'';
+ finishTurn(pArg.slice('--print='.length));
+}
 `);
  const settings=structuredClone(DEFAULTS);settings.delegate.antigravity={path:bin,model:'gemini-test',effort:'medium',cwd:dir,autoApprove:false,extraArgs:''};settings.autoWriteResult=false;settings.delegate.writeLink=false;settings.delegate.confirmFirst=false;
  const plugin={settings,jobs:{},vaultPath:dir,notice(){},saveSettings(){},saveJobs(){},refreshUI(){},readNote:async()=>'- TODO test task',modelById:()=>null};
  const d=new Delegator(plugin);d.handoff=()=>{throw new Error('Antigravity must use CLI runner, not clipboard handoff')};
  const read=()=>fs.existsSync(invocations)?fs.readFileSync(invocations,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
+ const readPrompts=()=>fs.existsSync(prompts)?fs.readFileSync(prompts,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
  const cleanup=()=>cleanupDelegatorDir(d,dir);
- return{d,plugin,dir,read,cleanup,send:opts=>d.delegate({agent:'antigravity',file:{path:'test.md'},line:0,...opts})};
+ return{d,plugin,dir,read,readPrompts,cleanup,send:opts=>d.delegate({agent:'antigravity',file:{path:'test.md'},line:0,...opts})};
 }
 async function settle(j){const end=Date.now()+2000;while(!['done','error','cancelled'].includes(j.state)&&Date.now()<end)await new Promise(r=>setTimeout(r,10));}
 
 test('Antigravity delegates via official agy CLI stream-json without invoking acp',async()=>{const f=fixture();try{const j=await f.send();await settle(j);assert.equal(j.state,'done',j.error||'');assert.equal(j.result,'AGY_OK');assert.equal(j.transport,'cli');assert.equal(j.app,'cli');assert.equal(j.handoff,undefined);const calls=f.read();assert.equal(calls.length,1);assert.equal(calls[0].includes('acp'),false);assert.ok(calls[0].includes('--output-format')&&calls[0].includes('stream-json'));assert.ok(calls[0].includes('--model')&&calls[0].includes('gemini-test'));assert.ok(calls[0].includes('--effort')&&calls[0].includes('medium'));assert.equal(calls[0].includes('--dangerously-skip-permissions'),false)}finally{f.cleanup()}});
-test('Antigravity follow-up resumes same ID via --resume and refuses overlapping sends',async()=>{const f=fixture();try{const j=await f.send();await settle(j);const again=await f.d.continueSession({agent:'antigravity',sid:j.sessionId,transport:'cli'},'继续\n'+ '上下文'.repeat(5000));await settle(again);assert.equal(again.id,j.id);assert.equal(again.conversation.length,4);const calls=f.read();assert.equal(calls.length,2);const rIdx=calls[1].indexOf('--resume');assert.ok(rIdx>=0&&calls[1][rIdx+1]==='agy-session')}finally{f.cleanup()}});
+test('Antigravity follow-up resumes same ID via --resume and refuses overlapping sends',async()=>{const f=fixture();try{const j=await f.send();await settle(j);const followUp='继续\n'+ '上下文'.repeat(5000);const again=await f.d.continueSession({agent:'antigravity',sid:j.sessionId,transport:'cli'},followUp);await settle(again);assert.equal(again.id,j.id);assert.equal(again.state,'done',again.error||'');assert.equal(again.conversation.length,4);const calls=f.read();assert.equal(calls.length,2);const rIdx=calls[1].indexOf('--resume');assert.ok(rIdx>=0&&calls[1][rIdx+1]==='agy-session');assert.equal(f.readPrompts()[1],followUp)}finally{f.cleanup()}});
+test('Antigravity switches to --input-format stream-json stdin transport for large prompts',async()=>{const f=fixture();try{const bigPrompt='A'.repeat(60050);f.plugin.readNote=async()=>`- TODO ${bigPrompt}`;const j=await f.send();await settle(j);assert.equal(j.state,'done',j.error||'');const calls=f.read();assert.equal(calls.length,1);const idx=calls[0].indexOf('--input-format');assert.ok(idx>=0&&calls[0][idx+1]==='stream-json');assert.equal(calls[0].some(a=>a.startsWith('--print=')),false);assert.ok(f.readPrompts()[0].includes(bigPrompt))}finally{f.cleanup()}});
 test('Antigravity discovers model choices via agy models without sending task',async()=>{const f=fixture();try{const models=await f.d.refreshAcpModels('antigravity');assert.equal(models[0].agent,'antigravity');assert.equal(models[0].value,'gemini-test');assert.equal(models[1].value,'gemini-other');assert.deepEqual(f.read(),[['models']])}finally{f.cleanup()}});
 test('Antigravity surfaces auth/model errors cleanly on CLI failure',async()=>{for(const mode of ['auth','bad-model']){const f=fixture(mode);try{const j=await f.send();await settle(j);assert.equal(j.state,'error');assert.equal(f.read().some(a=>a.includes('acp')),false)}finally{f.cleanup()}}});
 test('Antigravity passes --dangerously-skip-permissions only when autoApprove is enabled',async()=>{const f=fixture();try{f.plugin.settings.delegate.antigravity.autoApprove=true;const j=await f.send();await settle(j);assert.equal(j.state,'done',j.error||'');assert.ok(f.read()[0].includes('--dangerously-skip-permissions'))}finally{f.cleanup()}});
@@ -236,7 +260,8 @@ if(m.method==='session/prompt'){
   send({id:m.id,result:{stopReason:'end_turn'}});
   return;
 }
-});`);
+});
+rl.on('close',()=>process.exit(0));`);
   const settings = structuredClone(DEFAULTS);
   settings.delegate.dsh = { path: bin, model: 'dsh-default', effort: '', cwd: dir, autoApprove: true };
   settings.autoWriteResult = false;

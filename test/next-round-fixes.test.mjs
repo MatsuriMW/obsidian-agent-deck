@@ -681,6 +681,15 @@ test("AgentDeckPlugin exposes agentCatalog (21+ agents) and spiralUsageSnapshot 
     assert.equal(snap.days["2026-11-20"].by.hermes.wall, 42);
     assert.equal(snap.days[todayDash].wall, 30, "today snapshot overlays live summary");
     assert.equal(snap.days[todayDash].by.cursor.wall, 20);
+
+    // Reload / unload safety: cross-plugin callers must not throw when settings is missing or plugin unloaded
+    const raw = new M.AgentDeckPlugin();
+    assert.deepEqual(raw.primaryAgents(), []);
+    assert.equal(raw.isPrimary("claude"), false);
+    assert.equal(raw.agentEnabled("claude"), true);
+    assert.equal(raw.spiralUsageSnapshot("YYYY-MM-DD"), null);
+    p._unloaded = true;
+    assert.equal(p.spiralUsageSnapshot("YYYY-MM-DD"), null);
   } finally {
     env.cleanup();
   }

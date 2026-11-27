@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.36
+
+- **Windows 进程树清理与 Antigravity CLI 长提示词传输修复（[`src/security.js`](src/security.js)、[`src/delegation-runners.js`](src/delegation-runners.js)、[`src/main.js`](src/main.js)、[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）**：
+  - 修复 Windows 下 `killChildProcess()` 在异步 `taskkill /T /F` 尚未遍历进程树前就同步杀死父壳进程，导致 `.cmd`/`.bat` 孙子进程成为孤儿进程并长期占用 stdio 句柄卡死的问题；同步将 `spawnCapture()` 超时清理收口至 `killChildProcess()`。
+  - 修复 `AntigravityRunner` 在 Windows `.cmd`/`.bat` 或超长/多行提示词下继续走命令行参数 `--print=...` 触发 `The command line is too long.` 且丢失换行的问题：改用官方 `agy --input-format stream-json --output-format stream-json` 从 `stdin` 发送 NDJSON `user` 事件。
+  - 为 `primaryAgents()`、`agentEnabled()` 与 `spiralUsageSnapshot()` 增加重载窗口期空防护，避免螺旋日程在 Agent Deck 卸载/重载瞬间读取未初始化 `this.settings` 抛出 `TypeError`。
+  - 为 `.github/workflows/ci.yml` 增加 `timeout-minutes: 15`，并在 [`test/antigravity-acp.test.mjs`](test/antigravity-acp.test.mjs)、[`test/security-trace.test.mjs`](test/security-trace.test.mjs) 与 [`test/next-round-fixes.test.mjs`](test/next-round-fixes.test.mjs) 补充回归测试。
+
 ## 1.13.35
 
 - **全链路压测修复（[`src/styles/views/memory-graph.css`](src/styles/views/memory-graph.css)、[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/journal.js`](src/journal.js)、[`src/context-core/mcp-clients.js`](src/context-core/mcp-clients.js)）**：

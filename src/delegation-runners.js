@@ -383,7 +383,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
     let child;
     try { child = spawnCli(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
     catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
-    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
+    const timer = setTimeout(() => { if (!done) { done = true; killChildProcess(child, "SIGTERM"); resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
     child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
     child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 10000) err = err.slice(-10000); });
     child.on("error", (e) => { if (done) return; done = true; clearTimeout(timer); resolve({ ok: false, out, err: String(e && e.message || e) }); });
@@ -1411,11 +1411,11 @@ export class AntigravityRunner extends BaseRunner {
     const effort = opts.effort !== undefined ? opts.effort : (cfg.effort || "");
     const extra = splitArgs(cfg.extraArgs || "");
     const rawPrompt = String(opts.prompt ?? "");
-    const cliPrompt = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""))
-      ? rawPrompt.replace(/\r?\n/g, " ")
-      : rawPrompt;
+    const isWinCmd = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+    const useStdin = isWinCmd || (process.platform === "win32" && rawPrompt.length > 6000) || rawPrompt.length > 60000;
 
     const args = ["--output-format", "stream-json"];
+    if (useStdin) args.push("--input-format", "stream-json");
     if (opts.sessionId) args.push("--resume", opts.sessionId);
     if (model) args.push("--model", model);
     if (effort) args.push("--effort", effort);
@@ -1424,15 +1424,25 @@ export class AntigravityRunner extends BaseRunner {
     if (opts.permission === "plan") args.push("--mode", "plan");
     else if (opts.permission === "acceptEdits") args.push("--mode", "accept-edits");
     for (const a of extra) args.push(a);
-    args.push(`--print=${cliPrompt}`);
+    if (!useStdin) args.push(`--print=${rawPrompt}`);
 
     this.job.cwd = cwd;
     this.job.app = "cli";
     this.job.transport = "cli";
     if (opts.sessionId) this.job.sessionId = opts.sessionId;
-    this.job.command = redactSecrets([bin, ...args.slice(0, -1), "--print=<prompt>"].join(" "));
+    this.job.command = redactSecrets(
+      useStdin
+        ? [bin, ...args].join(" ")
+        : [bin, ...args.slice(0, -1), "--print=<prompt>"].join(" "),
+    );
     this.trace?.recordFrame("agy.spawn", path.basename(bin));
-    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"] });
+    if (useStdin && child.stdin) {
+      child.stdin.on("error", () => {});
+      try {
+        child.stdin.end(JSON.stringify({ event: "user", message: { content: rawPrompt } }) + "\n");
+      } catch { /* closed */ }
+    }
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();

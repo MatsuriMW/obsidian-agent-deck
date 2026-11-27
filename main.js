@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.35 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.36 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -9154,9 +9154,23 @@ function spawnCli(bin, args = [], opts = {}) {
 function killChildProcess(child, signal = "SIGTERM") {
   if (!child) return;
   if (process.platform === "win32" && child.pid) {
+    if (child.exitCode !== null || child.signalCode !== null) return;
     try {
-      (0, import_child_process.execFile)("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {
-      });
+      const killer = (0, import_child_process.execFile)(
+        "taskkill",
+        ["/PID", String(child.pid), "/T", "/F"],
+        { windowsHide: true },
+        (err2) => {
+          if (err2 && child.exitCode === null && child.signalCode === null) {
+            try {
+              child.kill(signal);
+            } catch {
+            }
+          }
+        }
+      );
+      if (typeof killer?.unref === "function") killer.unref();
+      return;
     } catch {
     }
   }
@@ -28104,10 +28118,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
     const timer = setTimeout(() => {
       if (!done) {
         done = true;
-        try {
-          child.kill("SIGTERM");
-        } catch {
-        }
+        killChildProcess(child, "SIGTERM");
         resolve({ ok: false, out, err: err2 || t("\u8D85\u65F6") });
       }
     }, timeout);
@@ -29120,8 +29131,10 @@ var AntigravityRunner = class extends BaseRunner {
     const effort = opts.effort !== void 0 ? opts.effort : cfg.effort || "";
     const extra = splitArgs(cfg.extraArgs || "");
     const rawPrompt = String(opts.prompt ?? "");
-    const cliPrompt = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || "")) ? rawPrompt.replace(/\r?\n/g, " ") : rawPrompt;
+    const isWinCmd = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+    const useStdin = isWinCmd || process.platform === "win32" && rawPrompt.length > 6e3 || rawPrompt.length > 6e4;
     const args = ["--output-format", "stream-json"];
+    if (useStdin) args.push("--input-format", "stream-json");
     if (opts.sessionId) args.push("--resume", opts.sessionId);
     if (model) args.push("--model", model);
     if (effort) args.push("--effort", effort);
@@ -29130,14 +29143,24 @@ var AntigravityRunner = class extends BaseRunner {
     if (opts.permission === "plan") args.push("--mode", "plan");
     else if (opts.permission === "acceptEdits") args.push("--mode", "accept-edits");
     for (const a of extra) args.push(a);
-    args.push(`--print=${cliPrompt}`);
+    if (!useStdin) args.push(`--print=${rawPrompt}`);
     this.job.cwd = cwd;
     this.job.app = "cli";
     this.job.transport = "cli";
     if (opts.sessionId) this.job.sessionId = opts.sessionId;
-    this.job.command = redactSecrets([bin, ...args.slice(0, -1), "--print=<prompt>"].join(" "));
+    this.job.command = redactSecrets(
+      useStdin ? [bin, ...args].join(" ") : [bin, ...args.slice(0, -1), "--print=<prompt>"].join(" ")
+    );
     this.trace?.recordFrame("agy.spawn", import_path21.default.basename(bin));
-    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"] });
+    if (useStdin && child.stdin) {
+      child.stdin.on("error", () => {
+      });
+      try {
+        child.stdin.end(JSON.stringify({ event: "user", message: { content: rawPrompt } }) + "\n");
+      } catch {
+      }
+    }
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -59838,13 +59861,13 @@ var AgentDeckPlugin = class extends import_obsidian22.Plugin {
     return m ? m.name : id || "";
   }
   primaryAgents() {
-    return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3);
+    return (this.settings?.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3);
   }
   isPrimary(agent) {
     return this.primaryAgents().includes(agent);
   }
   agentEnabled(agent) {
-    return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false;
+    return this.isPrimary(agent) || (this.settings?.agents || {})[agent] !== false;
   }
   agentCatalog() {
     const out = {};
@@ -59856,6 +59879,7 @@ var AgentDeckPlugin = class extends import_obsidian22.Plugin {
     return out;
   }
   spiralUsageSnapshot(format = "YYYY_MM_DD") {
+    if (this._unloaded || !this.settings) return null;
     const fmt = String(format || "YYYY_MM_DD");
     const mapKey = (k) => {
       const m = /^(\d{4})_(\d{2})_(\d{2})$/.exec(String(k || ""));

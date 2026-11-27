@@ -8,6 +8,7 @@ on:
 
 jobs:
   verify:
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
