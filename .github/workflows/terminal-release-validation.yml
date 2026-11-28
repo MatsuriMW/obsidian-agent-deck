@@ -1,0 +1,77 @@
+name: Terminal release validation
+on:
+  push:
+    branches: [codex/terminal-release-validation-20261128]
+permissions:
+  contents: read
+jobs:
+  win:
+    name: Windows Server 2025 interactive terminal validation
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Build and test candidate
+        run: |
+          npm ci
+          node test/terminals.test.mjs
+          npm run build
+          npm run check:deploy
+      - name: Install Obsidian and WezTerm into runner
+        shell: pwsh
+        run: |
+          $q = Join-Path $env:RUNNER_TEMP "agent-deck-terminal-qa"
+          New-Item -ItemType Directory -Path $q -Force | Out-Null
+          $obsInstaller = Join-Path $q "obsidian.exe"
+          $wezArchive = Join-Path $q "wezterm.zip"
+          Invoke-WebRequest "https://github.com/obsidianmd/obsidian-releases/releases/download/v1.15.1/Obsidian-1.15.1.exe" -OutFile $obsInstaller
+          Invoke-WebRequest "https://github.com/wezterm/wezterm/releases/download/20240203-110809-5046fc22/WezTerm-windows-20240203-110809-5046fc22.zip" -OutFile $wezArchive
+          $obsFolder = Join-Path $q "obsidian-app"
+          $install = Start-Process -FilePath $obsInstaller -ArgumentList '/S', "/D=$obsFolder" -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Obsidian installer returned $($install.ExitCode)" }
+          Expand-Archive $wezArchive (Join-Path $q "wezterm-app")
+          $wez = Get-ChildItem -Path (Join-Path $q "wezterm-app") -Recurse -Filter wezterm.exe | Select-Object -First 1
+          if (-not $wez) { throw "WezTerm executable missing" }
+          $obs = Join-Path $obsFolder "Obsidian.exe"
+          if (-not (Test-Path $obs)) { throw "Obsidian executable missing" }
+          "AD_QA_ROOT=$q" >> $env:GITHUB_ENV
+          "AD_OBSIDIAN=$obs" >> $env:GITHUB_ENV
+          $wez.DirectoryName >> $env:GITHUB_PATH
+      - name: Run two WezTerm rounds in Obsidian
+        shell: pwsh
+        run: |
+          $q = $env:AD_QA_ROOT
+          $vault = Join-Path $q "Agent Deck QA"
+          $profile = Join-Path $q "profile"
+          New-Item -ItemType Directory -Path $profile -Force | Out-Null
+          npm run install:plugin -- $vault
+          Set-Content -Path (Join-Path $vault ".obsidian\community-plugins.json") -Value '["agent-deck"]' -Encoding utf8NoBOM
+          Set-Content -Path (Join-Path $vault ".obsidian\plugins\agent-deck\data.json") -Value '{"cliTerminal":"wezterm","autoLog":false,"defaultsMigratedAutoLog":true,"primaryAgentsInitialized":true,"primaryAgents":["gemini"],"journalPolicy":{"configured":true,"mode":"manual"},"language":"en"}' -Encoding utf8NoBOM
+          $metadata = @{vaults=@{"7564127635467123"=@{path=$vault;open=$true;ts=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()}}}
+          $metadata | ConvertTo-Json -Depth 5 -Compress | Set-Content (Join-Path $profile "obsidian.json") -Encoding utf8NoBOM
+          $obs = Start-Process -FilePath $env:AD_OBSIDIAN -ArgumentList "--user-data-dir=$profile","--remote-debugging-port=9241","--disable-gpu" -PassThru
+          $obs.Id | Set-Content -Path (Join-Path $q "obsidian.pid")
+          node scripts/terminal-release-smoke.mjs $q wezterm 1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/terminal-release-smoke.mjs $q wezterm 2
+      - name: Run two WSL tmux rounds in Obsidian
+        shell: pwsh
+        run: |
+          $q = $env:AD_QA_ROOT
+          $ubuntu = Join-Path $q "ubuntu.tar.gz"
+          Invoke-WebRequest "https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-24.04lts.rootfs.tar.gz" -OutFile $ubuntu
+          wsl.exe --import AgentDeckQA (Join-Path $q "ubuntu") $ubuntu --version 2
+          if ($LASTEXITCODE -ne 0) { throw "WSL import failed" }
+          wsl.exe --set-default AgentDeckQA
+          wsl.exe --exec sh -c 'apt-get update -qq && apt-get install -y -qq tmux'
+          if ($LASTEXITCODE -ne 0) { throw "tmux install failed" }
+          node scripts/terminal-release-smoke.mjs $q tmux wsl-1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          wsl.exe --exec tmux list-windows -t '=agent-deck' -F '#{window_name}'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node scripts/terminal-release-smoke.mjs $q tmux wsl-2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          wsl.exe --exec tmux list-windows -t '=agent-deck' -F '#{window_name}'
