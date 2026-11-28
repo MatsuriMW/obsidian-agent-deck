@@ -2,7 +2,7 @@
 // 零外部依赖 Canvas 2D 渲染、力导向 / 项目聚类双布局、1–2 跳邻域聚焦与右侧检验抽屉。
 import { ItemView } from "obsidian";
 import { MEMORY_KINDS } from "./memory-store.js";
-import { normalizeLinkName } from "./memory-graph.js";
+import { extractSourceNotes, normalizeLinkName } from "./memory-graph.js";
 import { buildMemoryGraphModel, graphBounds, neighborhoodOf, seedGraphLayout, stepGraphLayout } from "./memory-graph-data.js";
 import { t } from "./i18n.js";
 
@@ -904,16 +904,12 @@ export class MemoryGraphView extends ItemView {
         const sSec = drawer.createDiv({ cls: "ad-mem-graph__sec" });
         sSec.createDiv({ cls: "ad-mem-graph__seclabel", text: t("来源定位 ({n})", { n: node.parsedSources.length }) });
         for (const src of node.parsedSources) {
+          const link = extractSourceNotes([src.raw])[0]?.slice(2, -2) || "";
           const item = sSec.createEl("button", { cls: "ad-mem-graph__relitem" });
           item.createDiv({ cls: "ad-mem-graph__reltitle", text: src.quote || src.target || src.raw });
-          item.createDiv({
-            cls: "ad-mem-graph__relmeta",
-            text: `${src.target || ""}${src.blockId ? ` #^${src.blockId}` : ""}`,
-          });
-          item.addEventListener("click", () => {
-            const link = `${src.target}${src.blockId ? `#^${src.blockId}` : ""}`;
-            this.openSourceNote(link);
-          });
+          item.createDiv({ cls: "ad-mem-graph__relmeta", text: link });
+          item.disabled = !link;
+          if (link) item.addEventListener("click", () => this.openSourceNote(link));
         }
       }
       return;

@@ -143,6 +143,22 @@ try {
     return changes;
   });
 
+  await check("progress context distinguishes task status from URLs", async () => {
+    const result = await appRun(async () => {
+      const contents = [
+        "- DOING 调试任务 25% [进度说明](https://example.invalid/1/3)",
+        "- TODO 网址测试 https://example.invalid/rollout/50%",
+      ];
+      const file = await qa.write("项目 QA/准备委派.md",contents.join("\n")+"\n");
+      return Promise.all(contents.map(async (_,line) => {
+        const resolved = await qa.p.delegator.resolveBlockContext({file,line,newSession:true,entryMapMode:false},"task not located");
+        return resolved.prompt.includes("当前任务已推进至 25%") || /25%.*progress|progress.*25%/i.test(resolved.prompt);
+      }));
+    });
+    assert.deepEqual(result,[true,false]);
+    return result;
+  });
+
   await check("journal setup modal, template variables, AI anchor and repeat creation", async () => {
     const result = await appRun(async () => {
       const {p,wait,until,required} = qa;
@@ -292,6 +308,39 @@ try {
     return opened;
   });
 
+  await check("opening a source from memory details preserves the saved block anchor", async () => {
+    const destination = await appRun(async () => {
+      const file = await qa.write("来源详情定位.md", "# 来源详情\n\n- 原文 ^mem-qa2\n");
+      const reset = app.workspace.getLeaf("tab");
+      await reset.openFile(file,{active:true});
+      reset.view.editor.setCursor({line:0,ch:0});
+      await qa.p.dreaming.createEntry({text:"QA 详情块定位",kind:"fact",date:"2026-11-28",sources:["[[来源详情定位#^mem-qa2|QA 别名]]"],verified:true});
+      await qa.p.openMemoryGraph();
+      const view = app.workspace.getLeavesOfType("agent-deck-memory-graph")[0].view;
+      await view.refresh({fit:true});
+      const entry = view.model.nodes.find(n => n.parsedSources?.some(s => s.raw.includes("来源详情定位#^mem-qa2")));
+      view.selectNode(qa.required(entry,"entry with block reference missing").id);
+      const row = [...view.contentEl.querySelectorAll(".ad-mem-graph__relitem")].find(b=>b.textContent.includes("来源详情定位"));
+      qa.required(row,"memory source row missing").click();
+      await qa.wait(400);
+      return [app.workspace.getActiveFile()?.path,app.workspace.activeLeaf?.view?.editor?.getCursor().line];
+    });
+    assert.deepEqual(destination,["来源详情定位.md",2]);
+    return destination;
+  });
+
+  await check("feature showcase opens a real Markdown note with both graph illustrations", async () => {
+    const result = await appRun(async () => {
+      const showcase = await qa.p.openWelcomeShowcase();
+      const file = app.vault.getAbstractFileByPath(showcase);
+      const text = await app.vault.read(file);
+      return {path:showcase,images:[...text.matchAll(/\/memory-graph-(overview|detail)\.png/g)].map(m=>m[1]),opened:app.workspace.getActiveFile()?.path};
+    });
+    assert.deepEqual(result.images,["overview","detail"]);
+    assert.equal(result.opened,result.path);
+    return result.path;
+  });
+
   await check("installed Memory MCP stdio with 9 or 5 tools from on-disk settings", async () => {
     const dir = path.join(vault,".obsidian","plugins","agent-deck");
     const asset = path.join(dir,"scripts","memory-mcp.mjs");
@@ -325,7 +374,7 @@ try {
         root.querySelectorAll(".ad-set-tab")[3].click();
         const button = [...root.querySelectorAll("button")].find(b => /握手|handshake/i.test(b.textContent) && b.closest(".ad-mcp-clients__head"));
         qa.required(button,"MCP handshake action missing").click();
-        const status = await qa.until(() => root.querySelector(".ad-mcp-clients__head > .ad-hint:not([hidden])")?.textContent,"MCP handshake result not displayed");
+        const status = await qa.until(() => root.querySelector(".ad-mcp-clients > .ad-hint:not([hidden])")?.textContent,"MCP handshake result not displayed");
         const configDir = app.vault.configDir;
         const mcpScript = require("node:path").join(p.vaultPath,configDir,"plugins","agent-deck","scripts","memory-mcp.mjs");
         const opts = {homeDir,vaultPath:p.vaultPath,mcpScript,configDir};
