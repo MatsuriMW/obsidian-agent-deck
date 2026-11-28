@@ -1,0 +1,49 @@
+name: Recent feature validation
+on:
+  push:
+    branches: [codex/windows-recent-regression-20261128]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Build candidate
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm ci
+          npm run build
+      - name: Exercise actual Windows subprocesses and databases
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          node --test test/security-trace.test.mjs test/antigravity-acp.test.mjs test/codex-titles.test.mjs test/memory-mcp.test.mjs
+      - name: Exercise the installed plugin in Obsidian
+        if: ${{ !cancelled() }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $q = Join-Path $env:RUNNER_TEMP 'agent-deck-recent-qa'
+          $vault = Join-Path $q 'Agent Deck QA'
+          $profile = Join-Path $q 'profile'
+          $env:CODEX_HOME = Join-Path $q 'Codex QA 会话'
+          New-Item -ItemType Directory -Path $profile -Force | Out-Null
+          $installer = Join-Path $q 'obsidian-installer.exe'
+          $obsFolder = Join-Path $q 'obsidian-app'
+          Invoke-WebRequest 'https://github.com/obsidianmd/obsidian-releases/releases/download/v1.15.1/Obsidian-1.15.1.exe' -OutFile $installer
+          $installation = Start-Process -FilePath $installer -ArgumentList '/S', "/D=$obsFolder" -PassThru -Wait
+          if ($installation.ExitCode -ne 0) { throw "Obsidian installer returned $($installation.ExitCode)" }
+          npm run install:plugin -- $vault
+          Set-Content -Path (Join-Path $vault '.obsidian\community-plugins.json') -Value '["agent-deck"]' -Encoding utf8NoBOM
+          Set-Content -Path (Join-Path $vault '.obsidian\plugins\agent-deck\data.json') -Value '{"autoLog":false,"defaultsMigratedAutoLog":true,"primaryAgentsInitialized":true,"primaryAgents":["codex"],"journalPolicy":{"configured":true,"mode":"manual"},"language":"zh"}' -Encoding utf8NoBOM
+          $metadata = @{vaults=@{"7564127635467123"=@{path=$vault;open=$true;ts=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()}}}
+          $metadata | ConvertTo-Json -Depth 5 -Compress | Set-Content (Join-Path $profile 'obsidian.json') -Encoding utf8NoBOM
+          $obs = Start-Process -FilePath (Join-Path $obsFolder 'Obsidian.exe') -ArgumentList "--user-data-dir=$profile","--remote-debugging-port=9241","--disable-gpu" -PassThru
+          try {
+            node scripts/recent-native-qa.mjs $q
+          } finally {
+            Stop-Process -Id $obs.Id -ErrorAction SilentlyContinue
+          }
