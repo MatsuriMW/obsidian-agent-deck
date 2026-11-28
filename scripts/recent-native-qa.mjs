@@ -26,7 +26,7 @@ fs.writeFileSync(path.join(codexHome, "session_index.jsonl"),
 let target;
 for (let i = 0; i < 90 && !target; i++) {
   try {
-    const pages = await (await fetch("http://127.0.0.1:9241/json/list")).json();
+    const pages = await (await fetch("http://127.0.0.1:9241/json/list",{signal:AbortSignal.timeout(1000)})).json();
     target = pages.find(t => t.type === "page" && t.title.includes(vaultName) && !t.title.startsWith("Settings -"));
   } catch {}
   if (!target) await wait(500);
@@ -171,7 +171,7 @@ try {
     });
     assert.match(result.text,/^---\n类别: 原稿\n---\n# [^\n]+/);
     assert.match(result.text,/日期 \d{4}-\d{2}-\d{2}/);
-    assert.match(result.text,/## AI 区域\n\{\{ai\}\}[\s\S]+后加手写正文/);
+    assert.match(result.text,/## AI 区域\n<!-- agent-deck:ai-anchor -->[\s\S]+后加手写正文/);
     return result.path;
   });
 
@@ -226,7 +226,9 @@ try {
           const tabs = [...el.querySelectorAll(".ad-set-tab")];
           qa.required(tabs.length === 5,"expected five settings tabs");
           tabs[1].click();
-          const btn = [...el.querySelectorAll("button")].find(b => /用样例试跑总结|sample.*preview|preview.*sample|run.*sample/i.test(b.textContent));
+          const toc = [...el.querySelectorAll(".ad-set-toc__item")].find(b => /任务结论与总结模型|conclusion.*model/i.test(b.textContent));
+          qa.required(toc,"summary settings TOC item missing").click();
+          const btn = [...el.querySelectorAll("button")].find(b => /用样例试跑总结|Test summary on sample/i.test(b.textContent));
           qa.required(btn,"summary preview action missing").click();
           return await qa.until(() => el.textContent.match(/原生摘要回执 QAPREVIEW|试跑失败[^\n]*/) ?. [0], "summary preview output missing");
         } finally { app.setting.close(); }
@@ -239,6 +241,41 @@ try {
       assert.doesNotMatch(JSON.stringify(requests[0].body.messages),/\{\{task\}\}/);
       return result;
     } finally { await new Promise(resolve => server.close(resolve)); }
+  });
+
+  await check("overlapping daily-note creation shares a single result", async () => {
+    const results = await appRun(async () => {
+      const day = "2033-08-24";
+      const path = qa.p.autoLog.journalPath(day);
+      const current = app.vault.getAbstractFileByPath(path);
+      if (current) await app.vault.delete(current);
+      return Promise.allSettled([
+        qa.p.autoLog.createJournal(day),
+        qa.p.autoLog.createJournal(day),
+      ]).then(rows => rows.map(row => row.status === "fulfilled"
+        ? [row.status,row.value?.path]
+        : [row.status,String(row.reason)]));
+    });
+    assert.equal(results[0][0],"fulfilled",JSON.stringify(results));
+    assert.deepEqual(results[1],results[0],JSON.stringify(results));
+    return results;
+  });
+
+  await check("opening a source from the graph goes to the existing Obsidian note", async () => {
+    const opened = await appRun(async () => {
+      const leaf = qa.required(app.workspace.getLeavesOfType("agent-deck-memory-graph")[0],"graph missing");
+      app.workspace.setActiveLeaf(leaf);
+      const view = leaf.view;
+      const source = qa.required(view.model.nodes.find(n => n.nodeType === "source"),"source missing");
+      view.selectNode(source.id);
+      const button = [...view.contentEl.querySelectorAll(".ad-mem-graph__actions button")]
+        .find(b => /打开笔记|open note/i.test(b.textContent));
+      qa.required(button,"open source action missing").click();
+      await qa.wait(400);
+      return app.workspace.getActiveFile()?.path || null;
+    });
+    assert.equal(opened,"记忆来源.md");
+    return opened;
   });
 
   await check("installed Memory MCP stdio with 9 or 5 tools from on-disk settings", async () => {

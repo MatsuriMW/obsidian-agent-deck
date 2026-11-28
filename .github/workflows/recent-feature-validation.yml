@@ -38,7 +38,7 @@ jobs:
           if ($installation.ExitCode -ne 0) { throw "Obsidian installer returned $($installation.ExitCode)" }
           npm run install:plugin -- $vault
           Set-Content -Path (Join-Path $vault '.obsidian\community-plugins.json') -Value '["agent-deck"]' -Encoding utf8NoBOM
-          Set-Content -Path (Join-Path $vault '.obsidian\plugins\agent-deck\data.json') -Value '{"autoLog":false,"defaultsMigratedAutoLog":true,"primaryAgentsInitialized":true,"primaryAgents":["codex"],"journalPolicy":{"configured":true,"mode":"manual"},"language":"zh"}' -Encoding utf8NoBOM
+          Set-Content -Path (Join-Path $vault '.obsidian\plugins\agent-deck\data.json') -Value '{"autoLog":false,"defaultsMigratedAutoLog":true,"primaryAgentsInitialized":true,"primaryAgents":["codex"],"journalPolicy":{"configured":true,"mode":"manual"},"uiLanguage":"zh"}' -Encoding utf8NoBOM
           $metadata = @{vaults=@{"7564127635467123"=@{path=$vault;open=$true;ts=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()}}}
           $metadata | ConvertTo-Json -Depth 5 -Compress | Set-Content (Join-Path $profile 'obsidian.json') -Encoding utf8NoBOM
           $obs = Start-Process -FilePath (Join-Path $obsFolder 'Obsidian.exe') -ArgumentList "--user-data-dir=$profile","--remote-debugging-port=9241","--disable-gpu" -PassThru
