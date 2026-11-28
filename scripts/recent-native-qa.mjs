@@ -147,12 +147,14 @@ try {
       const {p,wait,until,required} = qa;
       const day = p.autoLog.dayKey();
       const targetPath = p.autoLog.journalPath(day);
+      const existing = app.vault.getAbstractFileByPath(targetPath);
+      if (existing) await app.vault.delete(existing);
+      await p.updateJournalPolicy({ configured:false, mode:"manual", aiPlacement:"bottom" });
       const current = () => document.querySelector(".ad-jsetup");
       const defer = p.promptJournalPolicyIfNeeded({day,targetPath,manualTrigger:true});
       (await until(() => current()?.querySelector(".ad-modalfoot button"),"daily setup did not open")).click();
       const dismissed = await defer;
       required(dismissed.dismissed && !app.vault.getAbstractFileByPath(targetPath), "deferring created the journal");
-      await p.updateJournalPolicy({ configured:false, mode:"manual", aiPlacement:"bottom" });
       const configure = p.promptJournalPolicyIfNeeded({day,targetPath,manualTrigger:true});
       const modal = await until(current,"daily setup did not reopen");
       modal.querySelector(".ad-jsetup__choice").click();
@@ -167,11 +169,15 @@ try {
       const file = required(await p.autoLog.createJournal(day), "journal not created");
       await app.vault.append(file,"\n后加手写正文\n");
       await p.autoLog.createJournal(day);
-      return {path:file.path,text:await app.vault.read(file)};
+      const text = await app.vault.read(file);
+      const next = p.autoLog.placeBlock(text,["- DOING QA 原生记录 ^ad-qajournal"]);
+      await app.vault.modify(file,next);
+      return {path:file.path,text,next:await app.vault.read(file)};
     });
     assert.match(result.text,/^---\n类别: 原稿\n---\n# [^\n]+/);
     assert.match(result.text,/日期 \d{4}-\d{2}-\d{2}/);
     assert.match(result.text,/## AI 区域\n<!-- agent-deck:ai-anchor -->[\s\S]+后加手写正文/);
+    assert.match(result.next,/## AI 区域[\s\S]+QA 原生记录[\s\S]+## 手写[\s\S]+后加手写正文/);
     return result.path;
   });
 

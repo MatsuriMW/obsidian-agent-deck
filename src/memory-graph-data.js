@@ -249,13 +249,14 @@ export function buildMemoryGraphModel(entries = [], options = {}) {
         if (!sk) continue;
         let sNode = sourceNodes.get(sk);
         if (!sNode) {
-          const lbl = baseName(sp) || sp;
+          const link = sp.slice(2, -2);
+          const lbl = baseName(normalizeLinkName(sp)) || link;
           sNode = {
             id: "src:" + sp,
             nodeType: "source",
             label: lbl,
             shortLabel: shortText(lbl, 22),
-            path: sp,
+            path: link,
             memoryCount: 0,
             degree: 0,
             radius: 6,
