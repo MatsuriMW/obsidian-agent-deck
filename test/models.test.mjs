@@ -270,10 +270,14 @@ assert.ok(!plugin.settings.models.enabled.includes(''), 'empty model id is never
 syncDelegationSettings(plugin.settings);
 assert.equal(plugin.settings.delegate.codex.model, '', 'syncDelegationSettings preserves explicit unspecified model');
 const terminalSelect = delBody.all().filter(el => el.tag === 'select').at(-1);
-assert.deepEqual(terminalSelect.children.map(el => el.attrs.value), ['auto', 'terminal', 'iterm', 'warp', 'ghostty', 'cmux', 'tmux', 'wezterm', 'kitty', 'alacritty', 'tern', 'herdr']);
-terminalSelect.value = 'iterm';
+const windows = process.platform === 'win32';
+assert.deepEqual(terminalSelect.children.map(el => el.attrs.value), windows
+  ? ['auto', 'terminal', 'warp', 'tmux', 'wezterm', 'alacritty', 'tern', 'herdr']
+  : ['auto', 'terminal', 'iterm', 'warp', 'ghostty', 'cmux', 'tmux', 'wezterm', 'kitty', 'alacritty', 'tern', 'herdr']);
+const preferredTerminal = windows ? 'wezterm' : 'iterm';
+terminalSelect.value = preferredTerminal;
 terminalSelect.onchange();
-assert.equal(plugin.settings.cliTerminal, 'iterm');
+assert.equal(plugin.settings.cliTerminal, preferredTerminal);
 console.log('PASS primary-only delegation folds and standard select menus for Codex and primary terminal');
 
 // Regression: closing models auto-saves immediately and never re-enables disabled active defaults.
