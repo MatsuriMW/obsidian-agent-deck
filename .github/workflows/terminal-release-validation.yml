@@ -37,8 +37,12 @@ jobs:
           if (-not $wez) { throw "WezTerm executable missing" }
           $obs = Join-Path $obsFolder "Obsidian.exe"
           if (-not (Test-Path $obs)) { throw "Obsidian executable missing" }
+          $wezConfig = Join-Path $q "wezterm.lua"
+          Set-Content -Path $wezConfig -Value 'return { front_end = "Software", exit_behavior = "Hold" }' -Encoding utf8NoBOM
           "AD_QA_ROOT=$q" >> $env:GITHUB_ENV
           "AD_OBSIDIAN=$obs" >> $env:GITHUB_ENV
+          "WEZTERM_CONFIG_FILE=$wezConfig" >> $env:GITHUB_ENV
+          "WEZTERM_LOG=wezterm_gui=debug,portable_pty=debug" >> $env:GITHUB_ENV
           $wez.DirectoryName >> $env:GITHUB_PATH
       - name: Run two WezTerm rounds in Obsidian
         shell: pwsh
@@ -55,14 +59,27 @@ jobs:
           $obs = Start-Process -FilePath $env:AD_OBSIDIAN -ArgumentList "--user-data-dir=$profile","--remote-debugging-port=9241","--disable-gpu" -PassThru
           $obs.Id | Set-Content -Path (Join-Path $q "obsidian.pid")
           node scripts/terminal-release-smoke.mjs $q wezterm 1
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) {
+            Get-Process Obsidian,wezterm,wezterm-gui -ErrorAction SilentlyContinue | Select-Object Name,SessionId,MainWindowTitle
+            wezterm.exe cli list --format json
+            wezterm.exe cli get-text
+            Get-ChildItem "$env:TEMP\wezterm","$env:USERPROFILE\.local\share\wezterm","$env:LOCALAPPDATA\wezterm" -Recurse -File -ErrorAction SilentlyContinue |
+              Where-Object { $_.Name -match '\.log$|log.*\.txt$' } | ForEach-Object { Get-Content $_.FullName -Tail 25 }
+            $env:WEZTERM_LOG = "wezterm_gui=info"
+            wezterm.exe start --cwd $q -- cmd.exe /k 'echo standalone>standalone.txt'
+            Start-Sleep -Seconds 3
+            if (Test-Path (Join-Path $q "standalone.txt")) { "Standalone WezTerm command ran" }
+            exit 1
+          }
           node scripts/terminal-release-smoke.mjs $q wezterm 2
       - name: Run two WSL tmux rounds in Obsidian
+        if: "!cancelled()"
         shell: pwsh
         run: |
           $q = $env:AD_QA_ROOT
           $ubuntu = Join-Path $q "ubuntu.tar.gz"
-          Invoke-WebRequest "https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-24.04lts.rootfs.tar.gz" -OutFile $ubuntu
+          curl.exe --fail --silent --show-error --retry 2 --location "https://cloud-images.ubuntu.com/wsl/releases/24.04/current/ubuntu-noble-wsl-amd64-24.04lts.rootfs.tar.gz" --output $ubuntu
+          if ($LASTEXITCODE -ne 0) { throw "WSL image download failed" }
           wsl.exe --import AgentDeckQA (Join-Path $q "ubuntu") $ubuntu --version 2
           if ($LASTEXITCODE -ne 0) { throw "WSL import failed" }
           wsl.exe --set-default AgentDeckQA
