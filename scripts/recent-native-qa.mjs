@@ -7,6 +7,7 @@ import { DatabaseSync } from "node:sqlite";
 import { setTimeout as wait } from "node:timers/promises";
 
 const q = process.argv[2];
+const withSpiral = process.argv.includes("--with-spiral");
 const vaultName = "Agent Deck QA";
 const vault = path.join(q, vaultName);
 const codexHome = process.env.CODEX_HOME;
@@ -184,8 +185,8 @@ try {
   await check("memory graph in Obsidian, source toggle, empty filter and zoom", async () => {
     return appRun(async () => {
       const {p,write,until,required} = qa;
-      await write("记忆来源.md", "# 来源\n");
-      let src = await p.dreaming.createEntry({text:"原生客户端检查 记忆",kind:"fact",date:"2026-11-28",sources:["[[记忆来源]]"],verified:true});
+      await write("记忆来源.md", "# 来源\n\n- 原文位置 ^mem-qa1\n");
+      const src = await p.dreaming.createEntry({text:"原生客户端检查 块定位",kind:"fact",date:"2026-11-28",sources:["[[记忆来源#^mem-qa1]]","[[原生测试 已删除来源]]"],verified:true});
       required(src,"memory source file not written");
       let leaf = app.workspace.getLeavesOfType("agent-deck-memory-graph")[0];
       if (!leaf) await p.openMemoryGraph();
@@ -272,15 +273,22 @@ try {
       const leaf = qa.required(app.workspace.getLeavesOfType("agent-deck-memory-graph")[0],"graph missing");
       app.workspace.setActiveLeaf(leaf);
       const view = leaf.view;
-      const source = qa.required(view.model.nodes.find(n => n.nodeType === "source"),"source missing");
-      view.selectNode(source.id);
-      const button = [...view.contentEl.querySelectorAll(".ad-mem-graph__actions button")]
-        .find(b => /打开笔记|open note/i.test(b.textContent));
-      qa.required(button,"open source action missing").click();
+      const openSource = name => {
+        const source = qa.required(view.model.nodes.find(n => n.nodeType === "source" && n.path.includes(name)),"source missing: "+name);
+        view.selectNode(source.id);
+        const button = [...view.contentEl.querySelectorAll(".ad-mem-graph__actions button")]
+          .find(b => /打开笔记|open note/i.test(b.textContent));
+        qa.required(button,"open source action missing").click();
+      };
+      const filesBefore = app.vault.getFiles().map(f => f.path).sort().join("\n");
+      openSource("原生测试 已删除来源");
+      await qa.wait(250);
+      qa.required(filesBefore === app.vault.getFiles().map(f => f.path).sort().join("\n"), "missing source created a file");
+      openSource("记忆来源#^mem-qa1");
       await qa.wait(400);
-      return app.workspace.getActiveFile()?.path || null;
+      return [app.workspace.getActiveFile()?.path || null,app.workspace.activeLeaf?.view?.editor?.getCursor().line];
     });
-    assert.equal(opened,"记忆来源.md");
+    assert.deepEqual(opened,["记忆来源.md",2]);
     return opened;
   });
 
@@ -305,6 +313,51 @@ try {
     } finally { fs.writeFileSync(settings,old); }
     assert.deepEqual(counts,[9,5]);
     return counts;
+  });
+
+  await check("Memory MCP handshake from the experimental settings and native client config path", async () => {
+    const result = await appRun(async (homeDir) => {
+      const p = qa.p;
+      app.setting.open();
+      app.setting.openTabById("agent-deck");
+      try {
+        const root = await qa.until(() => app.setting.activeTab?.containerEl?.querySelector(".ad-set-tab") && app.setting.activeTab.containerEl,"settings page missing");
+        root.querySelectorAll(".ad-set-tab")[3].click();
+        const button = [...root.querySelectorAll("button")].find(b => /握手|handshake/i.test(b.textContent) && b.closest(".ad-mcp-clients__head"));
+        qa.required(button,"MCP handshake action missing").click();
+        const status = await qa.until(() => root.querySelector(".ad-mcp-clients__head > .ad-hint:not([hidden])")?.textContent,"MCP handshake result not displayed");
+        const configDir = app.vault.configDir;
+        const mcpScript = require("node:path").join(p.vaultPath,configDir,"plugins","agent-deck","scripts","memory-mcp.mjs");
+        const opts = {homeDir,vaultPath:p.vaultPath,mcpScript,configDir};
+        const installed = p.contextCore.installMcpClient("codex",opts);
+        const client = p.contextCore.listMcpClients(opts).find(c => c.id === "codex");
+        qa.required(client?.status === "connected","freshly written MCP configuration was not recognized");
+        p.contextCore.uninstallMcpClient("codex",{homeDir});
+        return [status,client.displayPath,Boolean(installed)];
+      } finally { app.setting.close(); }
+    },path.join(q,"MCP Client 目录"));
+    assert.match(result[0],/通过|成功|passed|success/i);
+    assert.ok(result[1].endsWith(process.platform === "win32" ? ".codex\\config.toml" : ".codex/config.toml"),result[1]);
+    return result;
+  });
+
+  if (withSpiral) await check("actual Nautilus Spiral integration, shared policies and source mirror", async () => {
+    return appRun(async () => {
+      const {p,required} = qa;
+      await app.plugins.loadManifests();
+      if (!app.plugins.plugins["nautilus-spiral"]) await app.plugins.enablePluginAndSave("nautilus-spiral");
+      const spiral = required(app.plugins.plugins["nautilus-spiral"],"Nautilus Spiral did not load");
+      const templateText = "# 共同模板\n{{ai}}\n";
+      const first = await spiral.updateJournalPolicy({mode:"auto",templateSource:"custom",templateText,aiPlacement:"placeholder"});
+      required(p.getOwnJournalPolicy().templateText === templateText,"Spiral did not persist its update to Agent Deck");
+      const second = await p.updateJournalPolicy({mode:"manual",aiPlacement:"top",updatedAt:first.updatedAt+1});
+      required(spiral.getOwnJournalPolicy().updatedAt === second.updatedAt && spiral.getOwnJournalPolicy().mode === "manual","Agent Deck did not persist its update to Spiral");
+      const mirror = await spiral.resolveJournalMirrors("- ![[项目 QA/源任务#^ad-qamirror1]]","镜像.md");
+      required(mirror.content.includes("25%") && mirror.mirrorMap.size === 1,"Spiral did not receive the live mirrored source");
+      const snapshot = await spiral.aiUsage({skipScan:true});
+      required(snapshot._fromDeck && snapshot.agents.codex,"Spiral did not use the Agent Deck snapshot");
+      return {spiral:spiral.manifest.version,source:[...mirror.mirrorMap.values()][0].path,providers:Object.keys(snapshot.agents).length};
+    });
   });
 
   await check("plugin reload keeps the settings usable", async () => {
