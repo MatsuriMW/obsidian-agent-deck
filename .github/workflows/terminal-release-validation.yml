@@ -32,8 +32,8 @@ jobs:
           $obsFolder = Join-Path $q "obsidian-app"
           $install = Start-Process -FilePath $obsInstaller -ArgumentList '/S', "/D=$obsFolder" -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "Obsidian installer returned $($install.ExitCode)" }
-          Expand-Archive $wezArchive (Join-Path $q "wezterm-app")
-          $wez = Get-ChildItem -Path (Join-Path $q "wezterm-app") -Recurse -Filter wezterm.exe | Select-Object -First 1
+          Expand-Archive $wezArchive (Join-Path $q "WezTerm Program Files")
+          $wez = Get-ChildItem -Path (Join-Path $q "WezTerm Program Files") -Recurse -Filter wezterm.exe | Select-Object -First 1
           if (-not $wez) { throw "WezTerm executable missing" }
           $obs = Join-Path $obsFolder "Obsidian.exe"
           if (-not (Test-Path $obs)) { throw "Obsidian executable missing" }
@@ -74,4 +74,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node scripts/terminal-release-smoke.mjs $q tmux wsl-2
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          wsl.exe --exec tmux list-windows -t '=agent-deck' -F '#{window_name}'
+          $windows = @(wsl.exe --exec tmux list-windows -t '=agent-deck' -F '#{window_name}')
+          if ($LASTEXITCODE -ne 0 -or $windows.Count -ne 6) { throw "Expected six WSL tmux windows, found $($windows.Count)" }
+          $windows

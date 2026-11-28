@@ -174,6 +174,7 @@ rl.on('line', (line) => {
     taskFile: 'C:\\Users\\陈\\AppData\\Local\\Temp\\prompt.txt',
     postArgs: ['--full'],
   });
+  assert.equal(psScript.charCodeAt(0), 0xfeff, 'Windows PowerShell must detect UTF-8 in launcher source');
   assert.match(psScript, /\[Console\]::InputEncoding/);
   assert.match(psScript, /\[System\.IO\.File\]::ReadAllText\('C:\\Users\\陈\\AppData\\Local\\Temp\\prompt\.txt'/);
   assert.match(psScript, /& 'C:\\Program Files\\nodejs\\codex\.cmd' 'exec' '--model' 'o''3' \$taskText '--full'/);

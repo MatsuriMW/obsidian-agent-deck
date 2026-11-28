@@ -393,7 +393,8 @@ export function buildWindowsPowerShellLauncher({ bin, preArgs = [], taskFile = "
     ...(cleanFile ? ["$taskText"] : []),
     ...postArgs.map((a) => psSingleQuote(stripWinLongPrefix(a))),
   ].join(" ");
-  return [
+  // Windows PowerShell 5.1 reads script source as ANSI unless it sees a Unicode BOM.
+  return "\uFEFF" + [
     "$ErrorActionPreference = 'Stop'",
     "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)",
     "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",

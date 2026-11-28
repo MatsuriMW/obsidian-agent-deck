@@ -9,6 +9,7 @@ const journal = path.join(dir, "invocations.jsonl");
 const vaultName = "Agent Deck QA";
 const windows = process.platform === "win32";
 fs.mkdirSync(dir, { recursive: true });
+fs.writeFileSync(journal, "");
 const probe = path.join(dir, "probe.cjs");
 fs.writeFileSync(probe,
   "const fs = require('node:fs');\n" +
@@ -16,7 +17,7 @@ fs.writeFileSync(probe,
 const quote = windows ? (s) => '"' + s + '"' : (s) => "'" + s.replaceAll("'", "'\\''") + "'";
 const bin = path.join(dir, windows ? "QA Gemini.cmd" : "QA Gemini");
 fs.writeFileSync(bin, windows
-  ? "@echo off\r\n" + quote(process.execPath) + " " + quote(probe) + " %*\r\n"
+  ? "@echo off\r\n" + quote(process.execPath) + ' "%~dp0probe.cjs" %*\r\n'
   : "#!/bin/sh\nexec " + quote(process.execPath) + " " + quote(probe) + ' "$@"\n',
 { mode: 0o755 });
 const basic = quote(process.execPath) + " " + quote(probe);
@@ -77,8 +78,15 @@ async function invocation(marker) {
 const project = JSON.stringify(dir);
 try {
   let ready;
+  let attemptedEnable = false;
   for (let i = 0; i < 50 && !ready; i++) {
     ready = await evaluate("window.app?.vault?.getName() === " + JSON.stringify(vaultName) + " && !!window.app?.plugins?.plugins?.['agent-deck']");
+    if (!ready && !attemptedEnable) {
+      attemptedEnable = await evaluate("(async () => {" +
+        "if (window.app?.vault?.getName() !== " + JSON.stringify(vaultName) + " || !app.workspace.layoutReady) return false;" +
+        "await app.plugins.loadManifests();if (!app.plugins.manifests['agent-deck']) throw Error('Agent Deck manifest missing from scratch vault');" +
+        "await app.plugins.setEnable(true);await app.plugins.enablePluginAndSave('agent-deck');return true;})()");
+    }
     if (!ready) await wait(350);
   }
   assert.ok(ready, "Agent Deck was not loaded into the isolated vault");
