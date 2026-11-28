@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.40 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.41 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -988,6 +988,7 @@ var settings_default = {
   "\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD": "Other Agents read today\u2019s sessions.",
   "\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21": "Remind after every 4 new records, up to twice a day.",
   "\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD": "Used for terminal delegation and resuming sessions.",
+  "tmux\uFF08\u901A\u8FC7 WSL\uFF09": "tmux (via WSL)",
   "\u9002\u7528\u4E8E Claude Code \u548C Codex": "Applies to Claude Code and Codex.",
   "\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}": "Current: {folder}; today: {path}",
   "\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}": "Example: YYYY-MM-DD; current: {format}",
@@ -3360,6 +3361,7 @@ var zh_TW_default = {
   "\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD": "\u975E\u4E3B\u529B\u8B80\u53D6\u7576\u5929\u6703\u8A71",
   "\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21": "\u6BCF\u65B0\u589E 4 \u689D\u8A18\u9304\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21",
   "\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD": "\u7528\u65BC\u7D42\u7AEF\u59D4\u6D3E\u548C\u6062\u5FA9\u6703\u8A71",
+  "tmux\uFF08\u901A\u8FC7 WSL\uFF09": "tmux\uFF08\u900F\u904E WSL\uFF09",
   "\u9002\u7528\u4E8E Claude Code \u548C Codex": "\u9069\u7528\u65BC Claude Code \u548C Codex",
   "\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}": "\u7576\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}",
   "\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}": "\u4F8B\u5982 YYYY-MM-DD\uFF1B\u7576\u524D\uFF1A{format}",
@@ -17066,7 +17068,7 @@ var import_path12 = __toESM(require("path"), 1);
 var import_os13 = __toESM(require("os"), 1);
 var import_child_process6 = require("child_process");
 
-// node_modules/fzstd/esm/index.mjs
+// ../../../../Users/chenchen/claude/agent-deck/node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -25563,7 +25565,7 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 }
 
 // src/delegation.js
-var import_crypto13 = require("crypto");
+var import_crypto14 = require("crypto");
 
 // src/skill-cards.js
 var import_fs17 = __toESM(require("fs"), 1);
@@ -26310,6 +26312,7 @@ var import_child_process9 = require("child_process");
 var import_fs19 = __toESM(require("fs"), 1);
 var import_path17 = __toESM(require("path"), 1);
 var import_os17 = __toESM(require("os"), 1);
+var import_crypto11 = require("crypto");
 var import_child_process7 = require("child_process");
 var fsp4 = import_fs19.default.promises;
 var HERDR_SPACE = "spagentdeck";
@@ -26319,22 +26322,33 @@ var defaultHome2 = () => import_os17.default.homedir();
 function shellQuote(s) {
   return `'${String(s || "").replace(/'/g, "'\\''")}'`;
 }
-function defaultOpenExternal(url) {
+async function defaultOpenExternal(url, platform) {
   try {
     const { shell } = require("electron");
     if (shell && typeof shell.openExternal === "function") {
-      shell.openExternal(url);
+      await shell.openExternal(url);
       return true;
     }
   } catch {
   }
-  try {
-    (0, import_child_process7.execFile)("/usr/bin/open", [url], () => {
-    });
-    return true;
-  } catch {
-    return false;
-  }
+  if (platform === "win32") return false;
+  return new Promise((resolve) => (0, import_child_process7.execFile)("/usr/bin/open", [url], (err2) => resolve(!err2)));
+}
+function encodeWindowsCommand(command) {
+  const payload = Buffer.from(String(command), "utf8").toString("base64");
+  const script = [
+    `$command = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))`,
+    `$start = [Diagnostics.ProcessStartInfo]::new('cmd.exe', ('/d /s /k "' + $command + '"'))`,
+    "$start.UseShellExecute = $false",
+    "$child = [Diagnostics.Process]::Start($start)",
+    "$child.WaitForExit()",
+    "exit $child.ExitCode"
+  ].join("\n");
+  return ["powershell.exe", "-NoProfile", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
+}
+function windowsShellArgs(command) {
+  const psFile = /^powershell\.exe\s+-NoExit\s+-ExecutionPolicy\s+Bypass\s+-File\s+"([^"]+)"$/i.exec(String(command).trim());
+  return psFile ? ["powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFile[1]] : encodeWindowsCommand(command);
 }
 function sanitizeTitle(title, fallback = "Agent Deck") {
   const s = String(title || "").replace(/[\r\n\0]+/g, " ").trim();
@@ -26365,6 +26379,8 @@ var TERMINAL_REGISTRY = [
     label: () => "Warp",
     app: "Warp.app",
     bundle: "dev.warp.Warp-Stable",
+    winBin: "warp.exe",
+    winReg: ["HKCU\\Software\\Warp.dev\\Warp", "InstallationPath"],
     hostPattern: /Warp\.app/i,
     autoOrder: 90,
     autoFallback: true
@@ -26398,6 +26414,7 @@ var TERMINAL_REGISTRY = [
     id: "tmux",
     label: () => "tmux",
     bin: "tmux",
+    winBin: "wsl.exe",
     hostPattern: /(^|\/)tmux(:.*)?$/,
     autoOrder: 35,
     autoFallback: false
@@ -26409,6 +26426,7 @@ var TERMINAL_REGISTRY = [
     app: "WezTerm.app",
     bundle: "com.github.wez.wezterm",
     bin: "wezterm",
+    winBin: "wezterm.exe",
     appBins: ["/Applications/WezTerm.app/Contents/MacOS/wezterm"],
     hostPattern: /WezTerm\.app|(^|\/)wezterm(-gui)?$/i,
     autoOrder: 50,
@@ -26431,6 +26449,8 @@ var TERMINAL_REGISTRY = [
     app: "Alacritty.app",
     bundle: "org.alacritty",
     bin: "alacritty",
+    winBin: "alacritty.exe",
+    winReg: ["HKCR\\Directory\\Background\\shell\\Open Alacritty here", "Icon"],
     appBins: ["/Applications/Alacritty.app/Contents/MacOS/alacritty"],
     hostPattern: /Alacritty\.app|(^|\/)alacritty$/i,
     autoOrder: 70,
@@ -26441,6 +26461,7 @@ var TERMINAL_REGISTRY = [
     label: () => "Tern",
     app: "Tern.app",
     bundle: "so.stencil.tern",
+    winBin: "tern.exe",
     appBins: ["/Applications/Tern.app/Contents/MacOS/tern"],
     hostPattern: /Tern\.app|(^|\/)tern$/,
     autoOrder: 20,
@@ -26452,6 +26473,7 @@ var TERMINAL_REGISTRY = [
     app: "Herdr.app",
     bundle: "dev.herdr.app",
     bin: "hc",
+    winBin: "hc.exe",
     requireBothAppAndBin: true,
     hostPattern: /(^|\/)herdr-core$|Herdr\.app/,
     autoOrder: 10,
@@ -26461,14 +26483,16 @@ var TERMINAL_REGISTRY = [
 var TERMINAL_BY_ID = Object.fromEntries(TERMINAL_REGISTRY.map((entry) => [entry.id, entry]));
 var TERMINAL_ORDER = TERMINAL_REGISTRY.slice().sort((a, b) => a.autoOrder - b.autoOrder).map((e) => e.id);
 var TERMINAL_NAME = Object.fromEntries(TERMINAL_REGISTRY.map((e) => [e.id, e.label()]));
-function getTerminalOptions() {
+function getTerminalOptions(platform = process.platform) {
+  const entries = platform === "win32" ? TERMINAL_REGISTRY.filter((e) => e.alwaysUsable || e.winBin) : TERMINAL_REGISTRY;
   return [
     { id: "auto", label: t("\u81EA\u52A8") },
-    ...TERMINAL_REGISTRY.map((e) => ({ id: e.id, label: e.label() }))
+    ...entries.map((e) => ({ id: e.id, label: platform === "win32" && e.id === "tmux" ? t("tmux\uFF08\u901A\u8FC7 WSL\uFF09") : e.label() }))
   ];
 }
 function createTerminalController(overrides = {}) {
   const platform = overrides.platform || process.platform;
+  const env = overrides.env || process.env;
   const home7 = overrides.home || defaultHome2;
   const existsSync = overrides.existsSync || import_fs19.default.existsSync;
   const mkdirSync = overrides.mkdirSync || import_fs19.default.mkdirSync;
@@ -26478,11 +26502,11 @@ function createTerminalController(overrides = {}) {
   const mkdir = overrides.mkdir || ((p, opts) => fsp4.mkdir(p, opts));
   const readdir = overrides.readdir || ((p) => fsp4.readdir(p));
   const kill = overrides.kill || ((pid, sig) => process.kill(pid, sig));
-  const openExternal2 = overrides.openExternal || defaultOpenExternal;
+  const openExternal2 = overrides.openExternal || ((url) => defaultOpenExternal(url, platform));
   const spawnFn = overrides.spawn || import_child_process7.spawn;
   const sleep = overrides.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
   const runResult = overrides.runResult || ((bin, args) => new Promise((resolve) => {
-    (0, import_child_process7.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => {
+    (0, import_child_process7.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20, windowsHide: platform === "win32" }, (err2, out) => {
       resolve({ ok: !err2, out: err2 ? "" : String(out || "") });
     });
   }));
@@ -26495,8 +26519,10 @@ function createTerminalController(overrides = {}) {
   const execDetached = overrides.execDetached || ((bin, args, opts = {}) => {
     try {
       const child = spawnFn(bin, args, { detached: true, stdio: "ignore", ...opts });
-      if (child && typeof child.unref === "function") child.unref();
-      return true;
+      child.on("error", () => {
+      });
+      child.unref();
+      return !!child.pid;
     } catch {
       return false;
     }
@@ -26512,6 +26538,7 @@ function createTerminalController(overrides = {}) {
   });
   const pathImpl = platform === "win32" ? import_path17.default.win32 : import_path17.default.posix;
   const expandHome5 = (p) => p.startsWith("~/") ? pathImpl.join(home7(), p.slice(2)) : p;
+  const localAppData = () => env.LOCALAPPDATA || pathImpl.join(home7(), "AppData", "Local");
   const appInstalled = (name) => {
     if (!name || platform !== "darwin") return false;
     return ["/Applications", pathImpl.join(home7(), "Applications")].some((d) => existsSync(pathImpl.join(d, name)));
@@ -26527,23 +26554,61 @@ function createTerminalController(overrides = {}) {
         `/usr/local/bin/${name}`,
         `/usr/bin/${name}`
       );
-      const pathDirs = String(process.env.PATH || "").split(pathImpl.delimiter).filter(Boolean);
-      for (const d of pathDirs) candidates.push(pathImpl.join(d, name));
+      const pathDirs = String(env.PATH || "").split(pathImpl.delimiter).filter(Boolean);
+      for (const d of pathDirs) {
+        const dir = platform === "win32" ? d.replace(/^"(.*)"$/, "$1") : d;
+        if (dir) candidates.push(pathImpl.join(dir, name));
+      }
     }
     return candidates.find((p) => existsSync(p)) || "";
   };
+  function findWinBin(name) {
+    if (!name) return "";
+    const join = pathImpl.join;
+    const local = localAppData();
+    const programFiles = env.ProgramFiles || "C:\\Program Files";
+    const standard = {
+      "warp.exe": [join(local, "Programs", "Warp", name), join(programFiles, "Warp", name)],
+      "alacritty.exe": [join(programFiles, "Alacritty", name)],
+      "hc.exe": [join(local, "Programs", "herdr-core", name)],
+      "herdr-app.exe": [join(local, "Programs", "herdr-app", name)],
+      "wsl.exe": [join(env.SystemRoot || "C:\\Windows", "System32", name)],
+      "wt.exe": [join(local, "Microsoft", "WindowsApps", name)]
+    };
+    return findBin(name, standard[name] || []);
+  }
+  async function windowsTerminalBin(id) {
+    const entry = TERMINAL_BY_ID[id];
+    if (!entry?.winBin) return "";
+    const bin = findWinBin(entry.winBin);
+    if (bin || !entry.winReg) return bin;
+    const [key, value] = entry.winReg;
+    const output = await run("reg.exe", ["query", key, "/v", value]);
+    const registered = /\bREG_SZ\s+([^\r\n]+)/.exec(output)?.[1].trim().replace(/,\s*0$/, "").replace(/^"|"$/g, "") || "";
+    if (!pathImpl.isAbsolute(registered)) return "";
+    const candidate = pathImpl.basename(registered).toLowerCase() === entry.winBin ? registered : pathImpl.join(registered, entry.winBin);
+    return existsSync(candidate) ? candidate : "";
+  }
   const loginShell = () => {
-    const envShell = process.env.SHELL;
+    const envShell = env.SHELL;
     if (envShell && existsSync(envShell)) return envShell;
     if (platform === "darwin" && existsSync("/bin/zsh")) return "/bin/zsh";
     if (existsSync("/bin/bash")) return "/bin/bash";
     return "/bin/sh";
   };
-  const entryBin = (entry) => findBin(entry.bin || "", entry.appBins || []);
+  const entryBin = (entry) => {
+    if (platform === "win32") return findWinBin(entry.winBin);
+    const appBins = entry.appBins || [];
+    return findBin(entry.bin || "", [
+      ...appBins,
+      ...appBins.filter((p) => p.startsWith("/Applications/")).map((p) => "~" + p)
+    ]);
+  };
   const usable = (id) => {
     const entry = TERMINAL_BY_ID[id];
     if (!entry) return false;
     if (entry.alwaysUsable) return true;
+    if (platform === "win32") return !!entryBin(entry);
     if (entry.requireBothAppAndBin) return appInstalled(entry.app) && !!entryBin(entry);
     if (entry.app && appInstalled(entry.app)) return true;
     if (entry.bin || entry.appBins?.length) return !!entryBin(entry);
@@ -26566,8 +26631,10 @@ function createTerminalController(overrides = {}) {
   }
   async function pickTerminal2(which = "auto", { exclude = [] } = {}) {
     const excluded = new Set(exclude);
+    if (platform === "win32") {
+      return !excluded.has(which) && (which === "terminal" || await windowsTerminalBin(which)) ? which : "terminal";
+    }
     if (TERMINAL_BY_ID[which] && !excluded.has(which)) return usable(which) ? which : "terminal";
-    if (platform === "win32") return "terminal";
     const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,comm="]);
     const count = {};
     for (const l of ps.split("\n")) {
@@ -26597,31 +26664,140 @@ function createTerminalController(overrides = {}) {
     if (open) return open;
     return TERMINAL_ORDER.find((tId) => !excluded.has(tId) && TERMINAL_BY_ID[tId].autoFallback && usable(tId)) || "terminal";
   }
+  function openWindowsHost(dir, args) {
+    const wt = findWinBin("wt.exe");
+    return !!(wt && execDetached(wt, ["-d", dir, ...args], { cwd: dir }) || execDetached("cmd.exe", ["/c", "start", "", "/D", dir, ...args], { cwd: dir }));
+  }
+  async function openWslTmux(bin, dir, title, args, background) {
+    const probe = "command -v tmux >/dev/null && command -v powershell.exe >/dev/null && pwd";
+    const linuxDir = (await run(bin, ["--cd", dir, "--exec", "sh", "-c", probe])).trim();
+    if (!linuxDir.startsWith("/")) return false;
+    const tmux = (args2) => runResult(bin, ["--exec", "tmux", ...args2]);
+    const session = "=" + TMUX_SESSION;
+    const hasSession = async () => (await tmux(["has-session", "-t", session])).ok;
+    const launch = ["-n", title, "-c", linuxDir, "--", "env", "-u", "WSL_INTEROP", ...args];
+    const newWindow = () => tmux(["new-window", "-t", session + ":", ...background ? ["-d"] : [], ...launch]);
+    const existing = await hasSession();
+    let result = existing ? await newWindow() : await tmux(["new-session", "-d", "-s", TMUX_SESSION, ...launch]);
+    if (!result.ok && !existing && await hasSession()) result = await newWindow();
+    if (!result.ok) return false;
+    if (!background) openWindowsHost(dir, [bin, "--exec", "tmux", "attach-session", "-t", session]);
+    return true;
+  }
+  async function openHerdr(hc, app, dir, title, args, background) {
+    const tab = "tbagentdeck" + (0, import_crypto11.randomBytes)(6).toString("hex");
+    const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", ...args]);
+    let addr = "";
+    try {
+      addr = JSON.parse(out).address || "";
+    } catch {
+    }
+    if (!addr) return false;
+    if (!background && platform === "win32") execDetached(app, [], { cwd: dir });
+    if (app) {
+      for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await sleep(300);
+      await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
+      await run(app, ["do", "tab.rename", "--id", tab, "--name", title]);
+      if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
+    }
+    if (!background && platform === "darwin") await run("/usr/bin/open", ["-b", TERMINAL_BY_ID.herdr.bundle]);
+    return true;
+  }
+  async function openTern(bin, dir, args, background) {
+    const launch = ["--json", "--cwd", dir, "--", ...args];
+    const tryOnce = async () => {
+      if (!background) return (await runResult(bin, ["new", "tab", ...launch])).ok;
+      let has = false;
+      try {
+        has = (JSON.parse(await run(bin, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION);
+      } catch {
+      }
+      return (await runResult(bin, has ? ["new", "tab", TERN_SESSION, ...launch] : ["new", "session", TERN_SESSION, ...launch])).ok;
+    };
+    let ok = await tryOnce();
+    if (!ok) {
+      await run(bin, ["daemon", "--login"]);
+      ok = await tryOnce();
+    }
+    if (!ok) return execDetached(bin, ["-e", ...args], { cwd: dir });
+    if (!background && platform === "darwin") execFire("/usr/bin/open", ["-b", TERMINAL_BY_ID.tern.bundle]);
+    return true;
+  }
+  async function openWarp(command, dir, title) {
+    try {
+      const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
+      const name = safeWarpConfigName(title) + "-" + (0, import_crypto11.randomBytes)(6).toString("hex");
+      if (platform === "win32") {
+        const appData = env.APPDATA || pathImpl.join(home7(), "AppData", "Roaming");
+        const d2 = pathImpl.join(appData, "warp", "Warp", "data", "tab_configs");
+        mkdirSync(d2, { recursive: true });
+        writeFileSync(pathImpl.join(d2, name + ".toml"), [
+          `name = ${q(title)}`,
+          "[[panes]]",
+          'id = "main"',
+          'type = "terminal"',
+          'shell = "powershell"',
+          `directory = ${q(dir)}`,
+          `commands = [${q(encodeWindowsCommand(command).join(" "))}]`,
+          ""
+        ].join("\n"));
+        return await openExternal2("warp://tab_config/" + name);
+      }
+      const d = pathImpl.join(home7(), ".warp", "launch_configurations");
+      mkdirSync(d, { recursive: true });
+      writeFileSync(pathImpl.join(d, name + ".yaml"), [
+        "---",
+        `name: ${q(name)}`,
+        "windows:",
+        "  - tabs:",
+        `      - title: ${q(title)}`,
+        "        layout:",
+        `          cwd: ${q(dir)}`,
+        "          commands:",
+        `            - exec: ${q(command)}`,
+        ""
+      ].join("\n"));
+      return await openExternal2("warp://launch/" + name);
+    } catch {
+      return false;
+    }
+  }
+  async function openWindowsTerminal(command, dir, term, title, background) {
+    const args = windowsShellArgs(command);
+    const bin = await windowsTerminalBin(term);
+    if (bin) {
+      if (term === "wezterm") {
+        const launch = ["--cwd", dir, "--", ...args];
+        if ((await runResult(bin, ["cli", "spawn", ...launch])).ok) return term;
+        const gui = pathImpl.join(pathImpl.dirname(bin), "wezterm-gui.exe");
+        const hasGui = existsSync(gui);
+        if (execDetached(hasGui ? gui : bin, ["start", ...launch], { cwd: dir, windowsHide: !hasGui })) return term;
+      } else if (term === "alacritty") {
+        if (execDetached(bin, ["--working-directory", dir, "--title", title, "-e", ...args], { cwd: dir })) return term;
+      } else if (term === "warp") {
+        if (await openWarp(command, dir, title)) return term;
+      } else if (term === "herdr") {
+        const app = findWinBin("herdr-app.exe");
+        if (app && await openHerdr(bin, app, dir, title, args, background)) return term;
+      } else if (term === "tern") {
+        if (await openTern(bin, dir, args, background)) return term;
+      } else if (term === "tmux") {
+        if (await openWslTmux(bin, dir, title, args, background)) return term;
+      }
+    }
+    return openWindowsHost(dir, args) ? "terminal" : "";
+  }
   async function openTerminal2(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
     const dir = cwd && existsSync(cwd) ? cwd : home7();
-    const term = await pickTerminal2(which);
     const cleanTitle = sanitizeTitle(title, "Claude");
+    if (platform === "win32") {
+      return openWindowsTerminal(command, String(dir).replace(/\//g, "\\"), which, cleanTitle, background);
+    }
+    const term = await pickTerminal2(which);
     const sh = loginShell();
     const interactiveCmd = `${command}; exec ${shellQuote(sh)} -l`;
     if (term === "herdr") {
-      const hc = findBin("hc"), app = findBin("herdr-app");
-      const tab = `tbagentdeck${Date.now().toString(36)}`;
-      const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", sh, "-lc", interactiveCmd]);
-      let addr = "";
-      try {
-        addr = JSON.parse(out).address || "";
-      } catch {
-      }
-      if (addr) {
-        if (app) {
-          for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await sleep(300);
-          await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
-          await run(app, ["do", "tab.rename", "--id", tab, "--name", cleanTitle]);
-          if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
-        }
-        if (!background) await run("/usr/bin/open", ["-b", TERMINAL_BY_ID.herdr.bundle]);
-        return term;
-      }
+      if (await openHerdr(entryBin(TERMINAL_BY_ID.herdr), findBin("herdr-app"), dir, cleanTitle, [sh, "-lc", interactiveCmd], background)) return term;
       return openTerminal2(command, cwd, "terminal", title, { background });
     }
     if (term === "cmux") {
@@ -26753,66 +26929,13 @@ function createTerminalController(overrides = {}) {
       return openTerminal2(command, cwd, "terminal", title, { background });
     }
     if (term === "warp") {
-      try {
-        const d = import_path17.default.join(home7(), ".warp/launch_configurations");
-        mkdirSync(d, { recursive: true });
-        const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
-        const cfgName = safeWarpConfigName(cleanTitle);
-        writeFileSync(import_path17.default.join(d, `${cfgName}.yaml`), [
-          "---",
-          `name: ${q(cfgName)}`,
-          "windows:",
-          "  - tabs:",
-          `      - title: ${q(cleanTitle)}`,
-          "        layout:",
-          `          cwd: ${q(dir)}`,
-          "          commands:",
-          `            - exec: ${q(command)}`,
-          ""
-        ].join("\n"));
-        openExternal2(`warp://launch/${encodeURIComponent(cfgName)}`);
-        return term;
-      } catch {
-      }
+      if (await openWarp(command, dir, cleanTitle)) return term;
+      return openTerminal2(command, cwd, "terminal", title, { background });
     }
-    const ternBin = entryBin(TERMINAL_BY_ID.tern);
-    if (term === "tern" && ternBin) {
-      const launch = ["--cwd", dir, "--", sh, "-lc", interactiveCmd];
-      (async () => {
-        const tryOnce = async () => {
-          if (!background) return await run(ternBin, ["new", "tab", "--json", ...launch]) !== "";
-          let has = false;
-          try {
-            has = (JSON.parse(await run(ternBin, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION);
-          } catch {
-          }
-          return await run(ternBin, has ? ["new", "tab", TERN_SESSION, "--json", ...launch] : ["new", "session", TERN_SESSION, "--json", ...launch]) !== "";
-        };
-        let ok = await tryOnce();
-        if (!ok) {
-          await run(ternBin, ["daemon", "--login"]);
-          ok = await tryOnce();
-        }
-        if (!ok) {
-          execDetached(ternBin, ["-e", sh, "-lc", interactiveCmd], { cwd: dir });
-          return;
-        }
-        if (!background) execFire("/usr/bin/open", ["-b", TERMINAL_BY_ID.tern.bundle]);
-      })();
-      return term;
-    }
-    if (platform === "win32") {
-      const winDir = String(dir || "").replace(/\//g, "\\");
-      const psMatch = /^powershell\.exe\s+([\s\S]+)$/i.exec(String(command || "").trim());
-      const psFileMatch = psMatch && /-File\s+"([^"]+)"/i.exec(psMatch[1]);
-      const wt = findBin("wt.exe");
-      if (wt) {
-        const wtArgs = psFileMatch ? ["-d", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]] : ["-d", winDir, "cmd.exe", "/k", command];
-        if (execDetached(wt, wtArgs, { cwd: winDir })) return "terminal";
-      }
-      const cmdArgs = psFileMatch ? ["/c", "start", "", "/D", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]] : ["/c", "start", "", "/D", winDir, "cmd.exe", "/k", command];
-      if (execDetached("cmd.exe", cmdArgs, { cwd: winDir })) return "terminal";
-      return "";
+    if (term === "tern") {
+      const bin = entryBin(TERMINAL_BY_ID.tern);
+      if (bin && await openTern(bin, dir, [sh, "-lc", interactiveCmd], background)) return term;
+      return openTerminal2(command, cwd, "terminal", title, { background });
     }
     if (platform !== "darwin") return "";
     const line = appleScriptString(`cd ${JSON.stringify(dir)} && ${command}`);
@@ -28580,7 +28703,7 @@ var HarnessPipeline = class {
 var import_fs21 = __toESM(require("fs"), 1);
 var import_path19 = __toESM(require("path"), 1);
 var import_os18 = __toESM(require("os"), 1);
-var import_crypto12 = require("crypto");
+var import_crypto13 = require("crypto");
 var import_child_process8 = require("child_process");
 
 // src/custom-acp.js
@@ -28731,9 +28854,9 @@ function syncCustomAcpRegistry(entries = []) {
 // src/codex-desktop.js
 var import_fs20 = __toESM(require("fs"), 1);
 var import_path18 = __toESM(require("path"), 1);
-var import_crypto11 = require("crypto");
+var import_crypto12 = require("crypto");
 var import_readline = require("readline");
-var taskHash = (text) => (0, import_crypto11.createHash)("sha1").update(String(text)).digest("hex");
+var taskHash = (text) => (0, import_crypto12.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
@@ -29511,7 +29634,7 @@ var ClaudeRunner = class extends BaseRunner {
     return this.startHeadless({ cwd, common, prompt, bin });
   }
   startHeadless({ cwd, common, prompt, bin }) {
-    const sid = (0, import_crypto12.randomUUID)();
+    const sid = (0, import_crypto13.randomUUID)();
     const useStdin = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
     const args2 = useStdin ? ["-p", "--session-id", sid, ...common] : ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${(useStdin ? args2 : args2.slice(0, -2)).join(" ")} \u2026`);
@@ -29626,7 +29749,7 @@ var QoderRunner = class extends BaseRunner {
     const model = resolveCliModel(d.plugin, "qoder", rawModel);
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
-    const sid = opts.sessionId || (0, import_crypto12.randomUUID)();
+    const sid = opts.sessionId || (0, import_crypto13.randomUUID)();
     this.sessionId = sid;
     if (opts.sessionId) this.job.sessionId = sid;
     this.job.cwd = cwd;
@@ -30654,7 +30777,7 @@ function buildWindowsPowerShellLauncher({ bin, preArgs = [], taskFile = "", post
     ...cleanFile ? ["$taskText"] : [],
     ...postArgs.map((a) => psSingleQuote(stripWinLongPrefix2(a)))
   ].join(" ");
-  return [
+  return "\uFEFF" + [
     "$ErrorActionPreference = 'Stop'",
     "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)",
     "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
@@ -30942,7 +31065,7 @@ ${replyText}`;
       const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1
 dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
       if (next !== raw) await this.plugin.app.vault.modify(file, next);
-      const hash4 = (0, import_crypto13.createHash)("sha256").update(next).digest("hex").slice(0, 16);
+      const hash4 = (0, import_crypto14.createHash)("sha256").update(next).digest("hex").slice(0, 16);
       if (resolved?.file?.path) {
         await updateNote(this.plugin, resolved.file.path, (text) => {
           const lines = text.split("\n");
@@ -31034,7 +31157,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
         lines.splice(at + 1, 0, draft ? `${indent}- \u{1F4DD} [[${relPath}|${t("\u6D3E\u53D1\u8349\u7A3F")}]]` : `${indent}- \u{1F4C4} [[${relPath}|${t("\u672C\u6B21\u8F7D\u8377")}]]`);
         return lines.join("\n");
       });
-      return { path: relPath, abs: this.vaultPath ? import_path20.default.join(this.vaultPath, relPath) : relPath, hash: (0, import_crypto13.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: this.vaultPath ? import_path20.default.join(this.vaultPath, relPath) : relPath, hash: (0, import_crypto14.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) {
       console.error("[agent-deck] \u5199\u5165\u6D3E\u53D1\u8F7D\u8377\u5931\u8D25", e);
       return null;
@@ -40940,14 +41063,14 @@ var obsidianNs2 = __toESM(require("obsidian"), 1);
 var import_obsidian7 = require("obsidian");
 
 // src/dream-entries.js
-var import_crypto14 = require("crypto");
+var import_crypto15 = require("crypto");
 var MEMORY_LABELS = {
   fact: "\u4E8B\u5B9E",
   preference: "\u504F\u597D",
   pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B",
   lesson: "\u9879\u76EE\u7ECF\u9A8C"
 };
-var hash2 = (text) => (0, import_crypto14.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash2 = (text) => (0, import_crypto15.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryId = (text) => "m-" + hash2(text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function notePath(value) {
   const p = String(value || "").trim().replace(/\\/g, "/");
@@ -40981,8 +41104,8 @@ function memoryEntries(text) {
 }
 
 // src/dream-evidence.js
-var import_crypto15 = require("crypto");
-var hash3 = (text) => (0, import_crypto15.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var import_crypto16 = require("crypto");
+var hash3 = (text) => (0, import_crypto16.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:[A-Z0-9-]+|[a-z0-9-]+)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 var AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 var SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
@@ -41114,7 +41237,7 @@ async function collectDreamEvidence(paths, read, { aiOnly = false, excludedDirs 
 var import_promises3 = __toESM(require("fs/promises"), 1);
 var import_path22 = __toESM(require("path"), 1);
 var import_os21 = __toESM(require("os"), 1);
-var import_crypto16 = require("crypto");
+var import_crypto17 = require("crypto");
 var import_child_process11 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process11.execFile);
@@ -41192,7 +41315,7 @@ var DreamSharing = class {
       });
       if (old !== snapshot) {
         await import_promises3.default.mkdir(import_path22.default.dirname(target), { recursive: true });
-        const temp = `${target}.${(0, import_crypto16.randomUUID)()}.tmp`;
+        const temp = `${target}.${(0, import_crypto17.randomUUID)()}.tmp`;
         try {
           await import_promises3.default.writeFile(temp, snapshot, { flag: "wx" });
           await import_promises3.default.rename(temp, target);
@@ -45052,7 +45175,10 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     if (showTerminal) {
       const termSupportedIds = cliHandoffAgents().filter((id) => p.agentEnabled(id));
       const termList = (termSupportedIds.length ? termSupportedIds : cliHandoffAgents()).map((id) => AGENTS[id]?.name || id).join("\u3001");
-      this.rowSelect(opsCard, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), getTerminalOptions(), s.cliTerminal || "auto", (v) => {
+      const terminalOptions = getTerminalOptions();
+      const preference = s.cliTerminal || "auto";
+      const selectedTerminal = terminalOptions.some((option) => option.id === preference) ? preference : "terminal";
+      this.rowSelect(opsCard, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), terminalOptions, selectedTerminal, (v) => {
         s.cliTerminal = v;
         p.saveSettings();
         this.display();
@@ -49338,7 +49464,7 @@ function recordIconsPostProcessor(plugin, images = AGENT_IMAGES) {
 var import_fs24 = __toESM(require("fs"), 1);
 var import_path24 = __toESM(require("path"), 1);
 var import_os23 = __toESM(require("os"), 1);
-var import_crypto17 = __toESM(require("crypto"), 1);
+var import_crypto18 = __toESM(require("crypto"), 1);
 var import_child_process12 = require("child_process");
 
 // src/menubar.swift
@@ -51788,7 +51914,7 @@ var MenuBarBridge = class {
     this.disabled = false;
     await fsp8.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
-    const hash4 = import_crypto17.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
+    const hash4 = import_crypto18.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
     let oldHash = "";
     try {
       oldHash = (await fsp8.readFile(this.hashPath, "utf8")).trim();

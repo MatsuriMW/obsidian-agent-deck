@@ -998,7 +998,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const termList = (termSupportedIds.length ? termSupportedIds : cliHandoffAgents())
         .map((id) => AGENTS[id]?.name || id)
         .join("、");
-      this.rowSelect(opsCard, t("主力终端"), t("用于终端委派和恢复会话"), getTerminalOptions(), s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+      const terminalOptions = getTerminalOptions();
+      const preference = s.cliTerminal || "auto";
+      const selectedTerminal = terminalOptions.some((option) => option.id === preference) ? preference : "terminal";
+      this.rowSelect(opsCard, t("主力终端"), t("用于终端委派和恢复会话"), terminalOptions, selectedTerminal, (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
       this.rowToggle(opsCard, t("默认在终端委派"), t("适用于 {agents}", { agents: termList }), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     }
   }

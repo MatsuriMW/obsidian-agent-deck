@@ -3,6 +3,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { randomBytes } from "crypto";
 import { spawn, execFile } from "child_process";
 import { appleScriptString, safeWarpConfigName } from "./security.js";
 import { t } from "./i18n.js";
@@ -18,12 +19,37 @@ function shellQuote(s) {
   return `'${String(s || "").replace(/'/g, "'\\''")}'`;
 }
 
-function defaultOpenExternal(url) {
+async function defaultOpenExternal(url, platform) {
   try {
     const { shell } = require("electron");
-    if (shell && typeof shell.openExternal === "function") { shell.openExternal(url); return true; }
+    if (shell && typeof shell.openExternal === "function") {
+      await shell.openExternal(url);
+      return true;
+    }
   } catch { /* not electron */ }
-  try { execFile("/usr/bin/open", [url], () => {}); return true; } catch { return false; }
+  if (platform === "win32") return false;
+  return new Promise((resolve) => execFile("/usr/bin/open", [url], (err) => resolve(!err)));
+}
+
+// CMD's /k tail is raw command text, so keep it out of the terminal's argv quoting.
+function encodeWindowsCommand(command) {
+  const payload = Buffer.from(String(command), "utf8").toString("base64");
+  const script = [
+    `$command = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))`,
+    "$start = [Diagnostics.ProcessStartInfo]::new('cmd.exe', ('/d /s /k \"' + $command + '\"'))",
+    "$start.UseShellExecute = $false",
+    "$child = [Diagnostics.Process]::Start($start)",
+    "$child.WaitForExit()",
+    "exit $child.ExitCode",
+  ].join("\n");
+  return ["powershell.exe", "-NoProfile", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
+}
+
+function windowsShellArgs(command) {
+  const psFile = /^powershell\.exe\s+-NoExit\s+-ExecutionPolicy\s+Bypass\s+-File\s+"([^"]+)"$/i.exec(String(command).trim());
+  return psFile
+    ? ["powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFile[1]]
+    : encodeWindowsCommand(command);
 }
 
 function sanitizeTitle(title, fallback = "Agent Deck") {
@@ -56,6 +82,8 @@ export const TERMINAL_REGISTRY = [
     label: () => "Warp",
     app: "Warp.app",
     bundle: "dev.warp.Warp-Stable",
+    winBin: "warp.exe",
+    winReg: ["HKCU\\Software\\Warp.dev\\Warp", "InstallationPath"],
     hostPattern: /Warp\.app/i,
     autoOrder: 90,
     autoFallback: true,
@@ -89,6 +117,7 @@ export const TERMINAL_REGISTRY = [
     id: "tmux",
     label: () => "tmux",
     bin: "tmux",
+    winBin: "wsl.exe",
     hostPattern: /(^|\/)tmux(:.*)?$/,
     autoOrder: 35,
     autoFallback: false, // don't hijack auto mode just because brew installed tmux
@@ -99,6 +128,7 @@ export const TERMINAL_REGISTRY = [
     app: "WezTerm.app",
     bundle: "com.github.wez.wezterm",
     bin: "wezterm",
+    winBin: "wezterm.exe",
     appBins: ["/Applications/WezTerm.app/Contents/MacOS/wezterm"],
     hostPattern: /WezTerm\.app|(^|\/)wezterm(-gui)?$/i,
     autoOrder: 50,
@@ -121,6 +151,8 @@ export const TERMINAL_REGISTRY = [
     app: "Alacritty.app",
     bundle: "org.alacritty",
     bin: "alacritty",
+    winBin: "alacritty.exe",
+    winReg: ["HKCR\\Directory\\Background\\shell\\Open Alacritty here", "Icon"],
     appBins: ["/Applications/Alacritty.app/Contents/MacOS/alacritty"],
     hostPattern: /Alacritty\.app|(^|\/)alacritty$/i,
     autoOrder: 70,
@@ -131,6 +163,7 @@ export const TERMINAL_REGISTRY = [
     label: () => "Tern",
     app: "Tern.app",
     bundle: "so.stencil.tern",
+    winBin: "tern.exe",
     appBins: ["/Applications/Tern.app/Contents/MacOS/tern"],
     hostPattern: /Tern\.app|(^|\/)tern$/,
     autoOrder: 20,
@@ -142,6 +175,7 @@ export const TERMINAL_REGISTRY = [
     app: "Herdr.app",
     bundle: "dev.herdr.app",
     bin: "hc",
+    winBin: "hc.exe",
     requireBothAppAndBin: true,
     hostPattern: /(^|\/)herdr-core$|Herdr\.app/,
     autoOrder: 10,
@@ -153,15 +187,17 @@ const TERMINAL_BY_ID = Object.fromEntries(TERMINAL_REGISTRY.map((entry) => [entr
 export const TERMINAL_ORDER = TERMINAL_REGISTRY.slice().sort((a, b) => a.autoOrder - b.autoOrder).map((e) => e.id);
 export const TERMINAL_NAME = Object.fromEntries(TERMINAL_REGISTRY.map((e) => [e.id, e.label()]));
 
-export function getTerminalOptions() {
+export function getTerminalOptions(platform = process.platform) {
+  const entries = platform === "win32" ? TERMINAL_REGISTRY.filter((e) => e.alwaysUsable || e.winBin) : TERMINAL_REGISTRY;
   return [
     { id: "auto", label: t("自动") },
-    ...TERMINAL_REGISTRY.map((e) => ({ id: e.id, label: e.label() })),
+    ...entries.map((e) => ({ id: e.id, label: platform === "win32" && e.id === "tmux" ? t("tmux（通过 WSL）") : e.label() })),
   ];
 }
 
 export function createTerminalController(overrides = {}) {
   const platform = overrides.platform || process.platform;
+  const env = overrides.env || process.env;
   const home = overrides.home || defaultHome;
   const existsSync = overrides.existsSync || fs.existsSync;
   const mkdirSync = overrides.mkdirSync || fs.mkdirSync;
@@ -171,12 +207,12 @@ export function createTerminalController(overrides = {}) {
   const mkdir = overrides.mkdir || ((p, opts) => fsp.mkdir(p, opts));
   const readdir = overrides.readdir || ((p) => fsp.readdir(p));
   const kill = overrides.kill || ((pid, sig) => process.kill(pid, sig));
-  const openExternal = overrides.openExternal || defaultOpenExternal;
+  const openExternal = overrides.openExternal || ((url) => defaultOpenExternal(url, platform));
   const spawnFn = overrides.spawn || spawn;
   const sleep = overrides.sleep || ((ms) => new Promise((r) => setTimeout(r, ms)));
 
   const runResult = overrides.runResult || ((bin, args) => new Promise((resolve) => {
-    execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20 }, (err, out) => {
+    execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20, windowsHide: platform === "win32" }, (err, out) => {
       resolve({ ok: !err, out: err ? "" : String(out || "") });
     });
   }));
@@ -189,8 +225,9 @@ export function createTerminalController(overrides = {}) {
   const execDetached = overrides.execDetached || ((bin, args, opts = {}) => {
     try {
       const child = spawnFn(bin, args, { detached: true, stdio: "ignore", ...opts });
-      if (child && typeof child.unref === "function") child.unref();
-      return true;
+      child.on("error", () => {});
+      child.unref();
+      return !!child.pid;
     } catch { return false; }
   });
   const execFire = overrides.execFire || ((bin, args) => {
@@ -199,6 +236,7 @@ export function createTerminalController(overrides = {}) {
 
   const pathImpl = platform === "win32" ? path.win32 : path.posix;
   const expandHome = (p) => (p.startsWith("~/") ? pathImpl.join(home(), p.slice(2)) : p);
+  const localAppData = () => env.LOCALAPPDATA || pathImpl.join(home(), "AppData", "Local");
 
   const appInstalled = (name) => {
     if (!name || platform !== "darwin") return false;
@@ -216,26 +254,69 @@ export function createTerminalController(overrides = {}) {
         `/usr/local/bin/${name}`,
         `/usr/bin/${name}`,
       );
-      const pathDirs = String(process.env.PATH || "").split(pathImpl.delimiter).filter(Boolean);
-      for (const d of pathDirs) candidates.push(pathImpl.join(d, name));
+      const pathDirs = String(env.PATH || "").split(pathImpl.delimiter).filter(Boolean);
+      for (const d of pathDirs) {
+        const dir = platform === "win32" ? d.replace(/^"(.*)"$/, "$1") : d;
+        if (dir) candidates.push(pathImpl.join(dir, name));
+      }
     }
     return candidates.find((p) => existsSync(p)) || "";
   };
 
+  function findWinBin(name) {
+    if (!name) return "";
+    const join = pathImpl.join;
+    const local = localAppData();
+    const programFiles = env.ProgramFiles || "C:\\Program Files";
+    const standard = {
+      "warp.exe": [join(local, "Programs", "Warp", name), join(programFiles, "Warp", name)],
+      "alacritty.exe": [join(programFiles, "Alacritty", name)],
+      "hc.exe": [join(local, "Programs", "herdr-core", name)],
+      "herdr-app.exe": [join(local, "Programs", "herdr-app", name)],
+      "wsl.exe": [join(env.SystemRoot || "C:\\Windows", "System32", name)],
+      "wt.exe": [join(local, "Microsoft", "WindowsApps", name)],
+    };
+    return findBin(name, standard[name] || []);
+  }
+
+  async function windowsTerminalBin(id) {
+    const entry = TERMINAL_BY_ID[id];
+    if (!entry?.winBin) return "";
+    const bin = findWinBin(entry.winBin);
+    if (bin || !entry.winReg) return bin;
+    const [key, value] = entry.winReg;
+    const output = await run("reg.exe", ["query", key, "/v", value]);
+    const registered = /\bREG_SZ\s+([^\r\n]+)/.exec(output)?.[1]
+      .trim().replace(/,\s*0$/, "").replace(/^"|"$/g, "") || "";
+    if (!pathImpl.isAbsolute(registered)) return "";
+    const candidate = pathImpl.basename(registered).toLowerCase() === entry.winBin
+      ? registered
+      : pathImpl.join(registered, entry.winBin);
+    return existsSync(candidate) ? candidate : "";
+  }
+
   const loginShell = () => {
-    const envShell = process.env.SHELL;
+    const envShell = env.SHELL;
     if (envShell && existsSync(envShell)) return envShell;
     if (platform === "darwin" && existsSync("/bin/zsh")) return "/bin/zsh";
     if (existsSync("/bin/bash")) return "/bin/bash";
     return "/bin/sh";
   };
 
-  const entryBin = (entry) => findBin(entry.bin || "", entry.appBins || []);
+  const entryBin = (entry) => {
+    if (platform === "win32") return findWinBin(entry.winBin);
+    const appBins = entry.appBins || [];
+    return findBin(entry.bin || "", [
+      ...appBins,
+      ...appBins.filter((p) => p.startsWith("/Applications/")).map((p) => "~" + p),
+    ]);
+  };
 
   const usable = (id) => {
     const entry = TERMINAL_BY_ID[id];
     if (!entry) return false;
     if (entry.alwaysUsable) return true;
+    if (platform === "win32") return !!entryBin(entry);
     if (entry.requireBothAppAndBin) return appInstalled(entry.app) && !!entryBin(entry);
     if (entry.app && appInstalled(entry.app)) return true;
     if (entry.bin || entry.appBins?.length) return !!entryBin(entry);
@@ -261,8 +342,10 @@ export function createTerminalController(overrides = {}) {
 
   async function pickTerminal(which = "auto", { exclude = [] } = {}) {
     const excluded = new Set(exclude);
+    if (platform === "win32") {
+      return !excluded.has(which) && (which === "terminal" || await windowsTerminalBin(which)) ? which : "terminal";
+    }
     if (TERMINAL_BY_ID[which] && !excluded.has(which)) return usable(which) ? which : "terminal";
-    if (platform === "win32") return "terminal";
 
     const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,comm="]);
     const count = {};
@@ -293,30 +376,130 @@ export function createTerminalController(overrides = {}) {
     return TERMINAL_ORDER.find((tId) => !excluded.has(tId) && TERMINAL_BY_ID[tId].autoFallback && usable(tId)) || "terminal";
   }
 
+  function openWindowsHost(dir, args) {
+    const wt = findWinBin("wt.exe");
+    return !!((wt && execDetached(wt, ["-d", dir, ...args], { cwd: dir }))
+      || execDetached("cmd.exe", ["/c", "start", "", "/D", dir, ...args], { cwd: dir }));
+  }
+
+  async function openWslTmux(bin, dir, title, args, background) {
+    const probe = "command -v tmux >/dev/null && command -v powershell.exe >/dev/null && pwd";
+    const linuxDir = (await run(bin, ["--cd", dir, "--exec", "sh", "-c", probe])).trim();
+    if (!linuxDir.startsWith("/")) return false;
+    const tmux = (args) => runResult(bin, ["--exec", "tmux", ...args]);
+    const session = "=" + TMUX_SESSION;
+    const hasSession = async () => (await tmux(["has-session", "-t", session])).ok;
+    // A persistent tmux server can inherit an interop socket from a WSL invocation that has since exited.
+    const launch = ["-n", title, "-c", linuxDir, "--", "env", "-u", "WSL_INTEROP", ...args];
+    const newWindow = () => tmux(["new-window", "-t", session + ":", ...(background ? ["-d"] : []), ...launch]);
+    const existing = await hasSession();
+    let result = existing
+      ? await newWindow()
+      : await tmux(["new-session", "-d", "-s", TMUX_SESSION, ...launch]);
+    if (!result.ok && !existing && await hasSession()) result = await newWindow();
+    if (!result.ok) return false;
+    if (!background) openWindowsHost(dir, [bin, "--exec", "tmux", "attach-session", "-t", session]);
+    return true;
+  }
+
+  async function openHerdr(hc, app, dir, title, args, background) {
+    const tab = "tbagentdeck" + randomBytes(6).toString("hex");
+    const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", ...args]);
+    let addr = "";
+    try { addr = JSON.parse(out).address || ""; } catch { /* hc not answering */ }
+    if (!addr) return false;
+    if (!background && platform === "win32") execDetached(app, [], { cwd: dir });
+    if (app) {
+      for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await sleep(300);
+      await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
+      await run(app, ["do", "tab.rename", "--id", tab, "--name", title]);
+      if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
+    }
+    if (!background && platform === "darwin") await run("/usr/bin/open", ["-b", TERMINAL_BY_ID.herdr.bundle]);
+    return true;
+  }
+
+  async function openTern(bin, dir, args, background) {
+    const launch = ["--json", "--cwd", dir, "--", ...args];
+    const tryOnce = async () => {
+      if (!background) return (await runResult(bin, ["new", "tab", ...launch])).ok;
+      let has = false;
+      try { has = (JSON.parse(await run(bin, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION); } catch { /* not running */ }
+      return (await runResult(bin, has ? ["new", "tab", TERN_SESSION, ...launch] : ["new", "session", TERN_SESSION, ...launch])).ok;
+    };
+    let ok = await tryOnce();
+    if (!ok) {
+      await run(bin, ["daemon", "--login"]);
+      ok = await tryOnce();
+    }
+    if (!ok) return execDetached(bin, ["-e", ...args], { cwd: dir });
+    if (!background && platform === "darwin") execFire("/usr/bin/open", ["-b", TERMINAL_BY_ID.tern.bundle]);
+    return true;
+  }
+
+  async function openWarp(command, dir, title) {
+    try {
+      const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
+      const name = safeWarpConfigName(title) + "-" + randomBytes(6).toString("hex");
+      if (platform === "win32") {
+        const appData = env.APPDATA || pathImpl.join(home(), "AppData", "Roaming");
+        const d = pathImpl.join(appData, "warp", "Warp", "data", "tab_configs");
+        mkdirSync(d, { recursive: true });
+        writeFileSync(pathImpl.join(d, name + ".toml"), [
+          `name = ${q(title)}`, "[[panes]]", 'id = "main"', 'type = "terminal"', 'shell = "powershell"',
+          `directory = ${q(dir)}`, `commands = [${q(encodeWindowsCommand(command).join(" "))}]`, "",
+        ].join("\n"));
+        return await openExternal("warp://tab_config/" + name);
+      }
+      const d = pathImpl.join(home(), ".warp", "launch_configurations");
+      mkdirSync(d, { recursive: true });
+      writeFileSync(pathImpl.join(d, name + ".yaml"), [
+        "---", `name: ${q(name)}`, "windows:", "  - tabs:", `      - title: ${q(title)}`, "        layout:",
+        `          cwd: ${q(dir)}`, "          commands:", `            - exec: ${q(command)}`, "",
+      ].join("\n"));
+      return await openExternal("warp://launch/" + name);
+    } catch { return false; }
+  }
+
+  async function openWindowsTerminal(command, dir, term, title, background) {
+    const args = windowsShellArgs(command);
+    const bin = await windowsTerminalBin(term);
+    if (bin) {
+      if (term === "wezterm") {
+        const launch = ["--cwd", dir, "--", ...args];
+        if ((await runResult(bin, ["cli", "spawn", ...launch])).ok) return term;
+        const gui = pathImpl.join(pathImpl.dirname(bin), "wezterm-gui.exe");
+        const hasGui = existsSync(gui);
+        if (execDetached(hasGui ? gui : bin, ["start", ...launch], { cwd: dir, windowsHide: !hasGui })) return term;
+      } else if (term === "alacritty") {
+        if (execDetached(bin, ["--working-directory", dir, "--title", title, "-e", ...args], { cwd: dir })) return term;
+      } else if (term === "warp") {
+        if (await openWarp(command, dir, title)) return term;
+      } else if (term === "herdr") {
+        const app = findWinBin("herdr-app.exe");
+        if (app && await openHerdr(bin, app, dir, title, args, background)) return term;
+      } else if (term === "tern") {
+        if (await openTern(bin, dir, args, background)) return term;
+      } else if (term === "tmux") {
+        if (await openWslTmux(bin, dir, title, args, background)) return term;
+      }
+    }
+    return openWindowsHost(dir, args) ? "terminal" : "";
+  }
+
   async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
     const dir = cwd && existsSync(cwd) ? cwd : home();
-    const term = await pickTerminal(which);
     const cleanTitle = sanitizeTitle(title, "Claude");
+    if (platform === "win32") {
+      return openWindowsTerminal(command, String(dir).replace(/\//g, "\\"), which, cleanTitle, background);
+    }
+
+    const term = await pickTerminal(which);
     const sh = loginShell();
     const interactiveCmd = `${command}; exec ${shellQuote(sh)} -l`;
 
-    // Herdr: hc run + herdr-app space/tab labeling
     if (term === "herdr") {
-      const hc = findBin("hc"), app = findBin("herdr-app");
-      const tab = `tbagentdeck${Date.now().toString(36)}`;
-      const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", sh, "-lc", interactiveCmd]);
-      let addr = "";
-      try { addr = JSON.parse(out).address || ""; } catch { /* hc not answering */ }
-      if (addr) {
-        if (app) {
-          for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await sleep(300);
-          await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
-          await run(app, ["do", "tab.rename", "--id", tab, "--name", cleanTitle]);
-          if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
-        }
-        if (!background) await run("/usr/bin/open", ["-b", TERMINAL_BY_ID.herdr.bundle]);
-        return term;
-      }
+      if (await openHerdr(entryBin(TERMINAL_BY_ID.herdr), findBin("herdr-app"), dir, cleanTitle, [sh, "-lc", interactiveCmd], background)) return term;
       return openTerminal(command, cwd, "terminal", title, { background });
     }
 
@@ -447,58 +630,15 @@ export function createTerminalController(overrides = {}) {
       return openTerminal(command, cwd, "terminal", title, { background });
     }
 
-    // Warp: launch_configurations YAML + warp://launch/
     if (term === "warp") {
-      try {
-        const d = path.join(home(), ".warp/launch_configurations");
-        mkdirSync(d, { recursive: true });
-        const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
-        const cfgName = safeWarpConfigName(cleanTitle);
-        writeFileSync(path.join(d, `${cfgName}.yaml`), [
-          "---", `name: ${q(cfgName)}`, "windows:", "  - tabs:", `      - title: ${q(cleanTitle)}`, "        layout:",
-          `          cwd: ${q(dir)}`, "          commands:", `            - exec: ${q(command)}`, "",
-        ].join("\n"));
-        openExternal(`warp://launch/${encodeURIComponent(cfgName)}`);
-        return term;
-      } catch { /* fall back to Terminal */ }
+      if (await openWarp(command, dir, cleanTitle)) return term;
+      return openTerminal(command, cwd, "terminal", title, { background });
     }
 
-    // Tern
-    const ternBin = entryBin(TERMINAL_BY_ID.tern);
-    if (term === "tern" && ternBin) {
-      const launch = ["--cwd", dir, "--", sh, "-lc", interactiveCmd];
-      (async () => {
-        const tryOnce = async () => {
-          if (!background) return (await run(ternBin, ["new", "tab", "--json", ...launch])) !== "";
-          let has = false;
-          try { has = (JSON.parse(await run(ternBin, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION); } catch { /* not running */ }
-          return (await run(ternBin, has ? ["new", "tab", TERN_SESSION, "--json", ...launch] : ["new", "session", TERN_SESSION, "--json", ...launch])) !== "";
-        };
-        let ok = await tryOnce();
-        if (!ok) { await run(ternBin, ["daemon", "--login"]); ok = await tryOnce(); }
-        if (!ok) { execDetached(ternBin, ["-e", sh, "-lc", interactiveCmd], { cwd: dir }); return; }
-        if (!background) execFire("/usr/bin/open", ["-b", TERMINAL_BY_ID.tern.bundle]);
-      })();
-      return term;
-    }
-
-    // Windows fallback: Windows Terminal (wt.exe) -> cmd.exe
-    if (platform === "win32") {
-      const winDir = String(dir || "").replace(/\//g, "\\");
-      const psMatch = /^powershell\.exe\s+([\s\S]+)$/i.exec(String(command || "").trim());
-      const psFileMatch = psMatch && /-File\s+"([^"]+)"/i.exec(psMatch[1]);
-      const wt = findBin("wt.exe");
-      if (wt) {
-        const wtArgs = psFileMatch
-          ? ["-d", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]]
-          : ["-d", winDir, "cmd.exe", "/k", command];
-        if (execDetached(wt, wtArgs, { cwd: winDir })) return "terminal";
-      }
-      const cmdArgs = psFileMatch
-        ? ["/c", "start", "", "/D", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]]
-        : ["/c", "start", "", "/D", winDir, "cmd.exe", "/k", command];
-      if (execDetached("cmd.exe", cmdArgs, { cwd: winDir })) return "terminal";
-      return "";
+    if (term === "tern") {
+      const bin = entryBin(TERMINAL_BY_ID.tern);
+      if (bin && await openTern(bin, dir, [sh, "-lc", interactiveCmd], background)) return term;
+      return openTerminal(command, cwd, "terminal", title, { background });
     }
 
     if (platform !== "darwin") return "";

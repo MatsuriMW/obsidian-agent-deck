@@ -1,6 +1,15 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.39**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.41**（2026-11-28）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## macOS 和 Windows 主力终端适配（2026-11-28）
+
+- Windows 接入 WezTerm、Warp、Alacritty、Tern、Herdr 与 WSL tmux。三个终端入口沿用原工作目录，单独传递 PowerShell 委派脚本路径及普通命令，启动失败时依次尝试 `wt.exe`、`cmd.exe`。Windows 下拉框只列已接入的选项。macOS 支持截图中的全部终端类型，补齐用户目录应用包查找，并在 Tern 启动失败时回退到系统终端。
+- Windows tmux 使用已启用 Windows 互操作的默认 WSL 发行版。该发行版需要安装 tmux，并能从 `PATH` 找到 `powershell.exe`。任务和恢复命令运行 Windows Agent CLI，沿用 Windows 会话数据。
+- Windows PowerShell 5.1 委派脚本使用 UTF-8 BOM，确保中文安装路径能被解析。普通命令通过 CMD 的原始参数尾部传递，保留带引号的程序路径和参数。
+- macOS arm64 上 `npm test`、`npm run eval`、隔离 `npm run build`、`npm run check:deploy` 和 `git diff --check` 通过。用实际 Obsidian 和独立测试库，经 tmux 跑完两轮打开终端、终端委派和恢复 CLI 会话。此前也在隔离会话中实跑了 Herdr Core 和 Tern。
+- Windows Server 2025 验证机用实际 Obsidian、WezTerm 和 Ubuntu WSL 2。WezTerm 和 WSL tmux 各通过两轮，三个入口均在带空格和中文的项目目录执行探针命令。原生 CMD 回归验证了中文、引号和 `&` 参数。WezTerm 使用了适配验证机的 WebGPU 软件渲染配置。Windows 11 用户桌面与其余 Windows 终端的 GUI 待实测。[Windows 验证日志](https://github.com/MatsuriMW/obsidian-agent-deck/actions/runs/46112750724)
+- Windows 侧参考 GitHub Desktop 的安装发现和 VS Code 的系统终端回退，macOS 侧对照 OpenInTerminal 的逐终端启动方式。[GitHub Desktop](https://github.com/desktop/desktop/blob/development/app/src/lib/shells/win32.ts) · [VS Code](https://github.com/microsoft/vscode/blob/main/src/vs/platform/externalTerminal/node/externalTerminalService.ts) · [OpenInTerminal](https://github.com/ji4n1ng/OpenInTerminal)
 
 ## 1.13.39 首次缺日记统一引导共享策略与设置页顶部 TOC 发版（2026-11-27）
 
@@ -338,7 +347,7 @@
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
 | **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `马自立`）、Antigravity 官方 `agy` CLI（`--output-format stream-json` / `--resume` / 27 模型）与记忆/入口地图查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列、9 家外部 MCP 客户端探测与 `dsh` Cordis YAML / `verifyMcpHandshake` 握手、Outline Journal 打包 `.app` 冒烟 | 终端交互仅实测 Tern / Herdr；11 家内置可委派客户端（+ 自定义 ACP）全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调；日常 20 次自然生产派发 `entryMapMode` 呼出率抽检待积累 |
-| **Windows** | `windows-latest` CI 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy` 已全部通过（社区 PR #7 亦在 Windows 11 实机跑通全量测试） | 尚未在 Windows 真机 Obsidian GUI 内实操交互；`src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop` |
+| **Windows** | `windows-latest` CI 曾通过全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`（社区 PR #7 亦在 Windows 11 实机跑通全量测试）。本轮在 Windows Server 2025 的 Obsidian 中实测 WezTerm 和 WSL 2 tmux，各跑两轮 | Windows 11 用户桌面与其余 Windows 终端的 GUI 待实测。已运行 CLI 会话的标签页定位待适配，`src/readers.js` 在 `win32` 跳过 `claudeDesktop` |
 
 ## 本批发版基线（1.13.6，2026-11-19，已构建并三端 CI 全绿）
 

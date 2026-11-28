@@ -87,6 +87,7 @@ export default {
   "非主力读取当天会话": "Other Agents read today’s sessions.",
   "每新增 4 条记录提醒，每天最多 2 次": "Remind after every 4 new records, up to twice a day.",
   "用于终端委派和恢复会话": "Used for terminal delegation and resuming sessions.",
+  "tmux（通过 WSL）": "tmux (via WSL)",
   "适用于 Claude Code 和 Codex": "Applies to Claude Code and Codex.",
   "当前：{folder}；今天：{path}": "Current: {folder}; today: {path}",
   "例如 YYYY-MM-DD；当前：{format}": "Example: YYYY-MM-DD; current: {format}",

@@ -660,6 +660,7 @@ export default {
   "非主力读取当天会话": "非主力讀取當天會話",
   "每新增 4 条记录提醒，每天最多 2 次": "每新增 4 條記錄提醒，每天最多 2 次",
   "用于终端委派和恢复会话": "用於終端委派和恢復會話",
+  "tmux（通过 WSL）": "tmux（透過 WSL）",
   "适用于 Claude Code 和 Codex": "適用於 Claude Code 和 Codex",
   "当前：{folder}；今天：{path}": "當前：{folder}；今天：{path}",
   "例如 YYYY-MM-DD；当前：{format}": "例如 YYYY-MM-DD；當前：{format}",

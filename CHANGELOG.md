@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.41
+
+- **Windows 主力终端**支持 WezTerm、Warp、Alacritty、Tern、Herdr 和 WSL tmux。「主力终端」按平台显示选项，终端委派、恢复 CLI 会话和打开终端沿用项目目录。
+- **Windows 命令兼容**修复带空格和中文的 PowerShell 脚本路径，并保留 CMD 命令的引号与参数。
+- **macOS 终端**补齐用户 `Applications` 目录的应用查找。Tern 启动失败时回退到系统终端。
+
 ## 1.13.40
 
 - **缺日记引导弹窗细节打磨与双插件跨格式同步修复（[`src/journal-policy.js`](src/journal-policy.js)、[`src/journal-setup-modal.js`](src/journal-setup-modal.js)、[`src/settings.js`](src/settings.js)、[`src/autolog.js`](src/autolog.js)、[`src/locales/en/dialogs.js`](src/locales/en/dialogs.js)、[`src/locales/zh-TW.js`](src/locales/zh-TW.js)）**：
