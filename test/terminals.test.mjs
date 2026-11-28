@@ -8,7 +8,8 @@ import { TERMINAL_REGISTRY, TERMINAL_NAME, getTerminalOptions, createTerminalCon
 
 function decodeWindowsCommand(encoded) {
   const script = Buffer.from(encoded, 'base64').toString('utf16le');
-  assert.match(script, /cmd\.exe \/k '%AGENT_DECK_TERMINAL_COMMAND%'/);
+  assert.ok(script.includes("'/d /s /k \"' + $command + '\"'"));
+  assert.match(script, /\[Diagnostics\.Process\]::Start/);
   const payload = /FromBase64String\('([^']+)'\)/.exec(script)?.[1];
   return Buffer.from(payload, 'base64').toString('utf8');
 }
@@ -385,11 +386,11 @@ if (process.platform === 'win32') {
     const ctrl = createTerminalController({
       execDetached: (_bin, args) => { nativeArgs = args.slice(-4); return true; },
     });
-    const command = '"' + process.execPath + '" -p "Buffer.from(require(\'node:fs\').realpathSync(process.cwd())).toString(\'hex\')"';
+    const command = '"' + process.execPath + '" -p "Buffer.from(require(\'node:fs\').realpathSync(process.cwd()).toLowerCase()).toString(\'hex\')"';
     assert.equal(await ctrl.openTerminal(command, cwd, 'terminal'), 'terminal');
     const [bin, ...argv] = nativeArgs;
     const output = execFileSync(bin, argv, { cwd, input: 'exit\r\n', encoding: 'utf8', timeout: 10000, windowsHide: true });
-    assert.ok(output.includes(Buffer.from(fs.realpathSync(cwd)).toString('hex')));
+    assert.ok(output.includes(Buffer.from(fs.realpathSync(cwd).toLowerCase()).toString('hex')), JSON.stringify(output));
     console.log('PASS native Windows interactive command quoting and project directory');
   } finally {
     fs.rmdirSync(cwd);

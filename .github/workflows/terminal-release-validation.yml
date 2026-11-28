@@ -16,8 +16,10 @@ jobs:
           node-version: '22'
       - name: Build and test candidate
         run: |
+          $PSNativeCommandUseErrorActionPreference = $true
           npm ci
           node test/terminals.test.mjs
+          node test/project-dispatch.test.mjs
           npm run build
           npm run check:deploy
       - name: Install Obsidian and WezTerm into runner

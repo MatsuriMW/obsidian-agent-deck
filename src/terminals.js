@@ -31,12 +31,16 @@ async function defaultOpenExternal(url, platform) {
   return new Promise((resolve) => execFile("/usr/bin/open", [url], (err) => resolve(!err)));
 }
 
-// Pass the CMD text through the environment so terminal argv quoting never rewrites it.
+// CMD's /k tail is raw command text, so keep it out of the terminal's argv quoting.
 function encodeWindowsCommand(command) {
   const payload = Buffer.from(String(command), "utf8").toString("base64");
   const script = [
-    `$env:AGENT_DECK_TERMINAL_COMMAND = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))`,
-    "cmd.exe /k '%AGENT_DECK_TERMINAL_COMMAND%'",
+    `$command = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${payload}'))`,
+    "$start = [Diagnostics.ProcessStartInfo]::new('cmd.exe', ('/d /s /k \"' + $command + '\"'))",
+    "$start.UseShellExecute = $false",
+    "$child = [Diagnostics.Process]::Start($start)",
+    "$child.WaitForExit()",
+    "exit $child.ExitCode",
   ].join("\n");
   return ["powershell.exe", "-NoProfile", "-EncodedCommand", Buffer.from(script, "utf16le").toString("base64")];
 }
