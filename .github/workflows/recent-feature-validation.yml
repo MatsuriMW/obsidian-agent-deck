@@ -6,7 +6,7 @@ permissions:
   contents: read
 jobs:
   native:
-    runs-on: windows-2025
+    runs-on: windows-11-arm
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
@@ -47,3 +47,20 @@ jobs:
           } finally {
             Stop-Process -Id $obs.Id -ErrorAction SilentlyContinue
           }
+  full-x64:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Run all tests with the normal Windows CI dependencies
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          npm ci
+          choco install sqlite -y --no-progress
+          npm test
+          npm run eval
+          npm run build
+          npm run check:deploy

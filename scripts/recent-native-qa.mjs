@@ -112,7 +112,7 @@ try {
     const runtime = require("process");
     let sqlite = "";
     try { sqlite = typeof require("node:sqlite").DatabaseSync; } catch (e) { sqlite = e.code || e.message; }
-    return {platform:runtime.platform,node:runtime.versions.node,electron:runtime.versions.electron,sqlite};
+    return {platform:runtime.platform,arch:runtime.arch,node:runtime.versions.node,electron:runtime.versions.electron,sqlite};
   }));
 
   await check("Codex title from a live SQLite WAL and BOM JSONL", async () => {
