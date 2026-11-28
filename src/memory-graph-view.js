@@ -2,7 +2,7 @@
 // 零外部依赖 Canvas 2D 渲染、力导向 / 项目聚类双布局、1–2 跳邻域聚焦与右侧检验抽屉。
 import { ItemView } from "obsidian";
 import { MEMORY_KINDS } from "./memory-store.js";
-import { normalizeLinkName } from "./memory-graph.js";
+import { extractSourceNotes, normalizeLinkName } from "./memory-graph.js";
 import { buildMemoryGraphModel, graphBounds, neighborhoodOf, seedGraphLayout, stepGraphLayout } from "./memory-graph-data.js";
 import { t } from "./i18n.js";
 
@@ -624,7 +624,7 @@ export class MemoryGraphView extends ItemView {
       if (hit.nodeType === "memory" && hit.path) {
         this.plugin?.app?.workspace?.openLinkText?.(hit.path, "", false);
       } else if (hit.nodeType === "source" && hit.path) {
-        this.plugin?.app?.workspace?.openLinkText?.(hit.path, "", false);
+        this.openSourceNote(hit.path);
       } else if ((hit.nodeType === "project" || hit.nodeType === "concept") && hit.existsInVault) {
         this.openWikiTarget(hit.label);
       }
@@ -636,6 +636,14 @@ export class MemoryGraphView extends ItemView {
     if (!clean) return;
     const dest = this.plugin?.app?.metadataCache?.getFirstLinkpathDest?.(clean, "");
     this.plugin?.app?.workspace?.openLinkText?.(dest?.path || clean, "", false);
+  }
+
+  openSourceNote(link) {
+    const target = link.split("#", 1)[0];
+    const app = this.plugin?.app;
+    const file = app?.metadataCache?.getFirstLinkpathDest?.(target, "");
+    if (!file) return this.plugin?.notice?.(t("找不到笔记：{path}", { path: target }));
+    return app.workspace?.openLinkText?.(file.path + link.slice(target.length), "", false);
   }
 
   selectNode(nodeId, { panTo = false } = {}) {
@@ -896,16 +904,12 @@ export class MemoryGraphView extends ItemView {
         const sSec = drawer.createDiv({ cls: "ad-mem-graph__sec" });
         sSec.createDiv({ cls: "ad-mem-graph__seclabel", text: t("来源定位 ({n})", { n: node.parsedSources.length }) });
         for (const src of node.parsedSources) {
+          const link = extractSourceNotes([src.raw])[0]?.slice(2, -2) || "";
           const item = sSec.createEl("button", { cls: "ad-mem-graph__relitem" });
           item.createDiv({ cls: "ad-mem-graph__reltitle", text: src.quote || src.target || src.raw });
-          item.createDiv({
-            cls: "ad-mem-graph__relmeta",
-            text: `${src.target || ""}${src.blockId ? ` #^${src.blockId}` : ""}`,
-          });
-          item.addEventListener("click", () => {
-            const link = `${src.target}${src.blockId ? `#^${src.blockId}` : ""}`;
-            this.plugin?.app?.workspace?.openLinkText?.(link, "", false);
-          });
+          item.createDiv({ cls: "ad-mem-graph__relmeta", text: link });
+          item.disabled = !link;
+          if (link) item.addEventListener("click", () => this.openSourceNote(link));
         }
       }
       return;
@@ -924,7 +928,7 @@ export class MemoryGraphView extends ItemView {
     const actions = drawer.createDiv({ cls: "ad-mem-graph__actions" });
     if (node.nodeType === "source" && node.path) {
       actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("打开笔记") })
-        .addEventListener("click", () => this.plugin?.app?.workspace?.openLinkText?.(node.path, "", false));
+        .addEventListener("click", () => this.openSourceNote(node.path));
     } else if (node.existsInVault) {
       actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("打开笔记") })
         .addEventListener("click", () => this.openWikiTarget(node.label));

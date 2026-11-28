@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.41 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.42 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -17068,7 +17068,7 @@ var import_path12 = __toESM(require("path"), 1);
 var import_os13 = __toESM(require("os"), 1);
 var import_child_process6 = require("child_process");
 
-// ../../../../Users/chenchen/claude/agent-deck/node_modules/fzstd/esm/index.mjs
+// node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -54670,13 +54670,14 @@ function buildMemoryGraphModel(entries = [], options = {}) {
         if (!sk) continue;
         let sNode = sourceNodes.get(sk);
         if (!sNode) {
-          const lbl = baseName(sp) || sp;
+          const link2 = sp.slice(2, -2);
+          const lbl = baseName(normalizeLinkName(sp)) || link2;
           sNode = {
             id: "src:" + sp,
             nodeType: "source",
             label: lbl,
             shortLabel: shortText(lbl, 22),
-            path: sp,
+            path: link2,
             memoryCount: 0,
             degree: 0,
             radius: 6
@@ -55813,7 +55814,7 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       if (hit.nodeType === "memory" && hit.path) {
         this.plugin?.app?.workspace?.openLinkText?.(hit.path, "", false);
       } else if (hit.nodeType === "source" && hit.path) {
-        this.plugin?.app?.workspace?.openLinkText?.(hit.path, "", false);
+        this.openSourceNote(hit.path);
       } else if ((hit.nodeType === "project" || hit.nodeType === "concept") && hit.existsInVault) {
         this.openWikiTarget(hit.label);
       }
@@ -55824,6 +55825,13 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     if (!clean2) return;
     const dest = this.plugin?.app?.metadataCache?.getFirstLinkpathDest?.(clean2, "");
     this.plugin?.app?.workspace?.openLinkText?.(dest?.path || clean2, "", false);
+  }
+  openSourceNote(link2) {
+    const target = link2.split("#", 1)[0];
+    const app = this.plugin?.app;
+    const file = app?.metadataCache?.getFirstLinkpathDest?.(target, "");
+    if (!file) return this.plugin?.notice?.(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: target }));
+    return app.workspace?.openLinkText?.(file.path + link2.slice(target.length), "", false);
   }
   selectNode(nodeId, { panTo = false } = {}) {
     this.selectedId = nodeId && this.model.nodeById.has(nodeId) ? nodeId : "";
@@ -56068,16 +56076,12 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
         const sSec = drawer.createDiv({ cls: "ad-mem-graph__sec" });
         sSec.createDiv({ cls: "ad-mem-graph__seclabel", text: t("\u6765\u6E90\u5B9A\u4F4D ({n})", { n: node.parsedSources.length }) });
         for (const src of node.parsedSources) {
+          const link2 = extractSourceNotes([src.raw])[0]?.slice(2, -2) || "";
           const item = sSec.createEl("button", { cls: "ad-mem-graph__relitem" });
           item.createDiv({ cls: "ad-mem-graph__reltitle", text: src.quote || src.target || src.raw });
-          item.createDiv({
-            cls: "ad-mem-graph__relmeta",
-            text: `${src.target || ""}${src.blockId ? ` #^${src.blockId}` : ""}`
-          });
-          item.addEventListener("click", () => {
-            const link2 = `${src.target}${src.blockId ? `#^${src.blockId}` : ""}`;
-            this.plugin?.app?.workspace?.openLinkText?.(link2, "", false);
-          });
+          item.createDiv({ cls: "ad-mem-graph__relmeta", text: link2 });
+          item.disabled = !link2;
+          if (link2) item.addEventListener("click", () => this.openSourceNote(link2));
         }
       }
       return;
@@ -56092,7 +56096,7 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     }
     const actions = drawer.createDiv({ cls: "ad-mem-graph__actions" });
     if (node.nodeType === "source" && node.path) {
-      actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("\u6253\u5F00\u7B14\u8BB0") }).addEventListener("click", () => this.plugin?.app?.workspace?.openLinkText?.(node.path, "", false));
+      actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("\u6253\u5F00\u7B14\u8BB0") }).addEventListener("click", () => this.openSourceNote(node.path));
     } else if (node.existsInVault) {
       actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("\u6253\u5F00\u7B14\u8BB0") }).addEventListener("click", () => this.openWikiTarget(node.label));
     }

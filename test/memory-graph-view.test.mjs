@@ -122,6 +122,10 @@ test("记忆图谱数据建模：过滤、冲突/替代边、候选概念与邻�
   assert.equal(model.stats.sources, 3);
   assert.equal(model.stats.conflicts, 1);
 
+  const source = model.nodeById.get("src:[[日记/2026_11_20#^mem-111]]");
+  assert.equal(source.label, "2026_11_20");
+  assert.equal(source.path, "日记/2026_11_20#^mem-111");
+
   const cDiary = model.nodeById.get("concept:日记无损");
   assert.ok(cDiary);
   assert.equal(cDiary.memoryCount, 5);
@@ -251,6 +255,7 @@ test("MemoryGraphView：双风格切换、交互筛选、检查抽屉动作与�
   assert.deepEqual(MEMORY_GRAPH_STYLES, ["editorial", "observatory"]);
   const entries = makeSampleEntries();
   const stateCalls = [];
+  const openedLinks = [];
   let refreshedBoards = 0;
   let saved = 0;
   const plugin = {
@@ -259,8 +264,10 @@ test("MemoryGraphView：双风格切换、交互筛选、检查抽屉动作与�
     refreshMemoryBoards: async () => { refreshedBoards++; },
     app: {
       vault: { getFiles: () => [{ path: "Agent Deck/记忆/m-1.md", basename: "m-1" }] },
-      metadataCache: { getFirstLinkpathDest: () => null },
-      workspace: { openLinkText() {} },
+      metadataCache: {
+        getFirstLinkpathDest: (target) => ["日记/2026_11_18", "日记/2026_11_20"].includes(target) ? { path: target + ".md" } : null,
+      },
+      workspace: { openLinkText: (target) => openedLinks.push(target) },
     },
     dreaming: {
       storeMode: true,
@@ -300,6 +307,19 @@ test("MemoryGraphView：双风格切换、交互筛选、检查抽屉动作与�
   await confirmBtn.click();
   assert.deepEqual(stateCalls, [{ path: "Agent Deck/记忆/m-2.md", st: "有效" }]);
   assert.equal(refreshedBoards, 1);
+
+  view.includeSources = true;
+  view.rebuildModel();
+  view.selectNode("src:[[日记/2026_11_20#^mem-111]]");
+  const open = view._drawerEl.all().find(el => el.tag === "button" && /打开笔记|開啟筆記|Open note/.test(el.textContent));
+  assert.ok(open);
+  await open.click();
+  view.selectNode("mem:m-2");
+  const sourceRow = view._drawerEl.all().find(el => el.classList.contains("ad-mem-graph__relitem") && el.children.some(child => child.textContent.includes("日记/2026_11_18")));
+  assert.ok(sourceRow);
+  await sourceRow.click();
+  view.openSourceNote("已删除的笔记#^mem-old");
+  assert.deepEqual(openedLinks, ["日记/2026_11_20.md#^mem-111", "日记/2026_11_18.md#^mem-222"]);
 
   // Non-files storeMode renders migration prompt instead of throwing
   plugin.dreaming.storeMode = false;

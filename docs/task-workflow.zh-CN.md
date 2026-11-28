@@ -1,6 +1,13 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.41**（2026-11-28）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.42**（2026-11-28）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.42 记忆图谱来源修复与近期功能双平台回归（2026-11-28）
+
+- Windows Server 2025 x64 和 macOS arm64 的 Obsidian 1.15.1 都复现了图谱来源节点误建带双链括号的笔记。macOS 还复现了记忆详情的普通块链接只打开笔记开头。现在两处共用已存在的笔记解析，保留块或标题锚点，失效来源仅提示找不到笔记。
+- Windows Server 2025 x64 和 macOS arm64 各实跑两轮。覆盖图谱来源、空筛选和缩放、Codex 活动 WAL 和带 BOM 的 JSONL、日记首次引导及占位符写入、任务镜像和进度上下文、五页设置及总结预览、示例笔记、MCP 工具范围和设置页握手、插件重载。Windows 另验证了真实子进程树清理和 Antigravity `.cmd` 的长文本传输。macOS 另安装 Nautilus Spiral 2.6.18，验证双向日记设置同步、任务镜像和会话快照。[Windows x64 验证日志](https://github.com/MatsuriMW/obsidian-agent-deck/actions/runs/46114686517)
+- Windows 11 ARM64 验证机运行原生 ARM64 Obsidian，13 项实机操作全部通过。Windows Server 2025 x64 的完整测试、上下文评估、构建和部署检查也通过。[Windows 11 ARM64 与 Windows x64 全量日志](https://github.com/MatsuriMW/obsidian-agent-deck/actions/runs/46114907255)
+- 专用测试库使用本地 HTTP 回执和 CLI 探针覆盖总结及传输。Windows 11 x64 用户桌面、Windows 上的螺旋日程联装和第三方账号登录留待实测。
 
 ## macOS 和 Windows 主力终端适配（2026-11-28）
 
