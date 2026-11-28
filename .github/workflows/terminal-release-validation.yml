@@ -40,7 +40,7 @@ jobs:
           $obs = Join-Path $obsFolder "Obsidian.exe"
           if (-not (Test-Path $obs)) { throw "Obsidian executable missing" }
           $wezConfig = Join-Path $q "wezterm.lua"
-          Set-Content -Path $wezConfig -Value 'return { front_end = "Software", exit_behavior = "Hold" }' -Encoding utf8NoBOM
+          Set-Content -Path $wezConfig -Value 'return { front_end = "WebGpu", webgpu_force_fallback_adapter = true, exit_behavior = "Hold" }' -Encoding utf8NoBOM
           "AD_QA_ROOT=$q" >> $env:GITHUB_ENV
           "AD_OBSIDIAN=$obs" >> $env:GITHUB_ENV
           "WEZTERM_CONFIG_FILE=$wezConfig" >> $env:GITHUB_ENV
@@ -63,8 +63,11 @@ jobs:
           node scripts/terminal-release-smoke.mjs $q wezterm 1
           if ($LASTEXITCODE -ne 0) {
             Get-Process Obsidian,wezterm,wezterm-gui -ErrorAction SilentlyContinue | Select-Object Name,SessionId,MainWindowTitle
-            wezterm.exe cli list --format json
-            wezterm.exe cli get-text
+            $panes = wezterm.exe cli list --format json
+            $panes
+            if ($LASTEXITCODE -eq 0 -and $panes) {
+              foreach ($pane in (($panes -join " ") | ConvertFrom-Json)) { wezterm.exe cli get-text --pane-id "$($pane.pane_id)" }
+            }
             Get-ChildItem "$env:TEMP\wezterm","$env:USERPROFILE\.local\share\wezterm","$env:LOCALAPPDATA\wezterm" -Recurse -File -ErrorAction SilentlyContinue |
               Where-Object { $_.Name -match '\.log$|log.*\.txt$' } | ForEach-Object { Get-Content $_.FullName -Tail 25 }
             $env:WEZTERM_LOG = "wezterm_gui=info"
@@ -75,7 +78,7 @@ jobs:
           }
           node scripts/terminal-release-smoke.mjs $q wezterm 2
       - name: Run two WSL tmux rounds in Obsidian
-        if: "!cancelled()"
+        if: ${{ !cancelled() && env.AD_QA_ROOT != '' }}
         shell: pwsh
         run: |
           $q = $env:AD_QA_ROOT

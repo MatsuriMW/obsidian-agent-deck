@@ -381,18 +381,22 @@ function decodeWindowsCommand(encoded) {
 // Exercise the actual Windows PowerShell/CMD boundary on the Windows runner.
 if (process.platform === 'win32') {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'Agent Deck 中文 '));
+  const marker = path.join(cwd, 'launcher-proof.txt');
   try {
     let nativeArgs;
     const ctrl = createTerminalController({
       execDetached: (_bin, args) => { nativeArgs = args.slice(-4); return true; },
     });
-    const command = '"' + process.execPath + '" -p "Buffer.from(require(\'node:fs\').realpathSync(process.cwd()).toLowerCase()).toString(\'hex\')"';
+    const expected = 'payload 中文 & spaces';
+    const command = '"' + process.execPath + '" -e "require(\'node:fs\').writeFileSync(\'launcher-proof.txt\', process.argv[1])" "' + expected + '"';
     assert.equal(await ctrl.openTerminal(command, cwd, 'terminal'), 'terminal');
     const [bin, ...argv] = nativeArgs;
     const output = execFileSync(bin, argv, { cwd, input: 'exit\r\n', encoding: 'utf8', timeout: 10000, windowsHide: true });
-    assert.ok(output.includes(Buffer.from(fs.realpathSync(cwd).toLowerCase()).toString('hex')), JSON.stringify(output));
+    assert.ok(fs.existsSync(marker), JSON.stringify(output));
+    assert.equal(fs.readFileSync(marker, 'utf8'), expected);
     console.log('PASS native Windows interactive command quoting and project directory');
   } finally {
+    if (fs.existsSync(marker)) fs.unlinkSync(marker);
     fs.rmdirSync(cwd);
   }
 }
